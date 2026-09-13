@@ -212,13 +212,13 @@
     }
     .seg button.sel { border-color: var(--forest); background: var(--forest); color: #F7F6F1; }
     .letgo {
-      margin-top: 12px; width: 100%; border: 1px dashed var(--brass); background: var(--brass-wash); color: var(--burn);
-      font: inherit; font-weight: 600; font-size: 14px; border-radius: 14px; padding: 13px; cursor: pointer;
+      margin-top: 10px; width: 100%; border: 1px dashed var(--brass); background: var(--brass-wash); color: var(--burn);
+      font: inherit; font-weight: 600; font-size: 13px; border-radius: 14px; padding: 11px; cursor: pointer;
     }
     .letgo:active { background: var(--clay); }
     .triage-del {
-      margin-top: 12px; width: 100%; border: 1px solid var(--line); background: var(--surface); color: var(--ink-soft);
-      font: inherit; font-weight: 600; font-size: 14px; border-radius: 14px; padding: 13px; cursor: pointer;
+      flex: 0 0 auto; border: 1px solid var(--line); background: var(--surface); color: var(--ink-soft);
+      font: inherit; font-weight: 600; font-size: 14px; border-radius: 14px; padding: 0 16px; height: 48px; cursor: pointer;
     }
     .triage-del:active { background: var(--surface-2); }
 
@@ -226,30 +226,32 @@
     .screen { display: none; }
     .screen.active { display: block; }
 
-    .triage-top { display: flex; align-items: center; gap: 14px; margin: 4px 2px 24px; }
+    .triage-top { display: flex; align-items: center; gap: 12px; margin: 2px 2px 14px; }
     .back {
       width: 44px; height: 44px; border-radius: 14px; border: 1px solid var(--line); background: var(--surface); color: var(--ink);
       font-size: 20px; cursor: pointer; flex: 0 0 auto; box-shadow: var(--shadow-hairline);
     }
     .triage-top .ti { font-family: var(--font-display); font-weight: 600; font-size: 22px; letter-spacing: -0.02em; color: var(--forest); }
     .triage-top .ti small { display: block; font-family: var(--font-body); font-weight: 600; font-size: 11px; color: var(--lake); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.14em; }
-    .triage-card { padding: 24px 20px; box-shadow: var(--shadow-soft); }
-    .triage-card .src { font-size: 11px; color: var(--lake); margin-bottom: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.12em; }
-    .triage-card .body { font-family: var(--font-display); font-size: 21px; font-weight: 400; line-height: 1.4; color: var(--ink); }
+    .triage-card { padding: 16px 16px; box-shadow: var(--shadow-soft); }
+    .triage-card .src { font-size: 11px; color: var(--lake); margin-bottom: 8px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.12em; }
+    .triage-card .body { font-family: var(--font-display); font-size: 17px; font-weight: 400; line-height: 1.35; color: var(--ink); max-height: 28vh; overflow-y: auto; }
     .two-min {
-      margin-top: 14px; font-size: 13px; color: var(--ink-soft); background: var(--surface-2); border: 1px dashed var(--line);
-      border-radius: 12px; padding: 10px 14px; line-height: 1.4;
+      margin-top: 10px; font-size: 12px; color: var(--ink-soft); background: var(--surface-2); border: 1px dashed var(--line);
+      border-radius: 12px; padding: 8px 12px; line-height: 1.35;
     }
     .two-min b { color: var(--burn); }
-    .pick-label { font-size: 12px; color: var(--lake); margin: 24px 6px 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.14em; }
-    .pick { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+    .pick-label { font-size: 12px; color: var(--lake); margin: 14px 6px 8px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.14em; }
+    .pick { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
     .pick button {
       border: 1px solid var(--line); cursor: pointer; background: var(--surface); color: var(--ink); font: inherit; font-weight: 600;
-      border-radius: var(--radius-sm); padding: 16px; font-size: 15px; display: flex; align-items: center; gap: 10px; transition: all .12s ease;
+      border-radius: var(--radius-sm); padding: 12px 14px; font-size: 14px; display: flex; align-items: center; gap: 9px; transition: all .12s ease;
     }
     .pick button.sel { border-color: var(--brass); background: var(--clay); color: var(--burn); }
     .pick button .ic { font-size: 20px; }
-    .task-extra { margin-top: 16px; display: none; }
+    .task-extra { margin-top: 12px; display: none; }
+    .triage-actions { margin-top: 14px; display: flex; gap: 10px; }
+    .triage-actions .btn-accent { flex: 1; height: 48px; }
     .task-extra.show { display: block; }
     .task-extra .fld { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 6px 16px; margin-bottom: 12px; }
     .task-extra label { display: block; font-size: 12px; color: var(--ink-soft); margin: 10px 0 2px; font-weight: 600; }
@@ -878,8 +880,8 @@
           projectSelectHtml() +
         '</div>' +
         '<div class="triage-actions">' +
-          '<button class="btn-accent" id="triage-confirm" style="width:100%;height:50px;">Готово</button>' +
-          '<button class="triage-del" id="triage-del">🗑️ Удалить запись</button>' +
+          '<button class="btn-accent" id="triage-confirm">Готово</button>' +
+          '<button class="triage-del" id="triage-del">🗑️ Удалить</button>' +
         '</div>';
 
       body.querySelector('.triage-card .body').textContent = entry.text;
