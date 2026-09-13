@@ -52,7 +52,7 @@
     .app { max-width: 560px; margin: 0 auto; padding: 26px 18px 110px; }
 
     /* Header */
-    .head { margin: 4px 2px 24px; display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+    .head { margin: 4px 2px 24px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 14px; }
     .head h1 {
       font-family: var(--font-display); font-weight: 600; font-size: 32px; line-height: 1.05;
       letter-spacing: -0.02em; margin: 0; color: var(--forest);
@@ -314,7 +314,7 @@
     <div id="screen-main" class="screen active">
       <div class="head">
         <div>
-          <h1>Органайзер Хаоса<span class="dot">.</span></h1>
+          <h1>Органайзер Хаоса</h1>
           <span class="sub" id="today-label"></span>
         </div>
         <button class="review-pill" id="review-btn">🗓 Обзор</button>
