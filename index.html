@@ -144,6 +144,8 @@
     .task-card .next b { font-weight: 700; white-space: nowrap; }
     .task-del { margin-left: auto; border: none; background: transparent; color: var(--ink-soft); font-size: 18px; cursor: pointer; padding: 2px 4px; flex: 0 0 auto; align-self: flex-start; line-height: 1; }
     .task-del:active { color: var(--burn); transform: scale(0.9); }
+    .task-due { margin-top: 10px; display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ink-soft); background: var(--surface-2); border: 1px solid var(--line); border-radius: 12px; padding: 6px 10px; }
+    .due-input { border: none; background: transparent; font: inherit; font-size: 13px; color: var(--ink); outline: none; max-width: 150px; }
     .more-note { text-align: center; font-size: 13px; color: var(--ink-soft); padding: 6px; }
     .empty-mini { padding: 22px; color: var(--ink-soft); font-size: 14px; text-align: center; line-height: 1.5; }
 
@@ -664,10 +666,18 @@
           '<div class="txt">' +
             '<div class="title"></div>' +
             (t.nextStep ? '<div class="next"><b>Следующий шаг:</b><span></span></div>' : '') +
+            '<div class="task-due">📅 <input type="date" class="due-input"></div>' +
           '</div>' +
           '<button class="task-del" title="Удалить задачу">🗑️</button>';
         c.querySelector('.title').textContent = t.text;
         if (t.nextStep) c.querySelector('.next span').textContent = t.nextStep;
+        var di = c.querySelector('.due-input');
+        if (t.due) di.value = t.due;
+        di.addEventListener('change', function () {
+          t.due = di.value || null;
+          save();
+          toast(t.due ? 'Срок: ' + t.due : 'Срок убран');
+        });
         c.querySelector('.check').addEventListener('click', function () {
           t.done = !t.done;
           renderWork();
