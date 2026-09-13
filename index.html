@@ -168,6 +168,7 @@
       display: flex; align-items: center; justify-content: center; gap: 9px; box-shadow: var(--shadow-hairline);
     }
     .export-btn:active { background: var(--surface-2); }
+    .export-btn.danger { color: var(--burn); border-color: var(--brass); border-style: dashed; }
 
     /* Projects */
     .project-card { padding: 18px; display: flex; gap: 14px; align-items: flex-start; }
@@ -377,6 +378,7 @@
       <div class="export-group">
         <button class="export-btn" id="export-btn">⬇️ Выгрузить в .txt</button>
         <button class="export-btn" id="notion-btn">📋 Копировать для Notion</button>
+        <button class="export-btn danger" id="clear-btn">🧹 Очистить всё — начать с чистого листа</button>
       </div>
     </div>
 
@@ -1212,6 +1214,27 @@
       }
     }
 
+    // ---- Очистить всё (чистый лист) ----
+    function clearAll() {
+      DATA.entries = [];
+      DATA.projects = [];
+      nextId = 1000;
+      saveLocal();
+      saveCloud();   // перезапишет облако пустым состоянием и уберёт лишние куски
+      render();
+      toast('Готово — чистый лист 🌿');
+      if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.notificationOccurred('success'); } catch (e) {} }
+    }
+
+    function confirmClearAll() {
+      var msg = 'Стереть все записи и проекты и начать с чистого листа? Отменить будет нельзя.';
+      if (tg && tg.showConfirm) {
+        tg.showConfirm(msg, function (ok) { if (ok) clearAll(); });
+      } else if (window.confirm(msg)) {
+        clearAll();
+      }
+    }
+
     // ---- Navigation ----
     function showScreen(name) {
       ['main', 'triage', 'list', 'review', 'matrix'].forEach(function (s) {
@@ -1246,6 +1269,7 @@
       el('tile-someday').addEventListener('click', function () { openStatusList('someday', '🌙 Когда-нибудь'); });
       el('export-btn').addEventListener('click', exportData);
       el('notion-btn').addEventListener('click', exportNotion);
+      el('clear-btn').addEventListener('click', confirmClearAll);
       boot();
     });
   </script>
