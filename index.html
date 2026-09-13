@@ -1175,6 +1175,16 @@
             b.addEventListener('click', function () { t.eisen = q.id; save(); renderMatrix(); toast('→ ' + q.t); });
             bwrap.appendChild(b);
           });
+          var del = document.createElement('button');
+          del.className = 'mu-b mu-del';
+          del.textContent = '🗑️ Удалить';
+          del.addEventListener('click', function () {
+            var idx = DATA.entries.indexOf(t);
+            if (idx > -1) DATA.entries.splice(idx, 1);
+            save(); renderMatrix(); toast('Задача удалена');
+            if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.impactOccurred('medium'); } catch (e) {} }
+          });
+          bwrap.appendChild(del);
           uwrap.appendChild(row);
         });
       }
