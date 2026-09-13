@@ -212,6 +212,11 @@
       font: inherit; font-weight: 600; font-size: 14px; border-radius: 14px; padding: 13px; cursor: pointer;
     }
     .letgo:active { background: var(--clay); }
+    .triage-del {
+      margin-top: 12px; width: 100%; border: 1px solid var(--line); background: var(--surface); color: var(--ink-soft);
+      font: inherit; font-weight: 600; font-size: 14px; border-radius: 14px; padding: 13px; cursor: pointer;
+    }
+    .triage-del:active { background: var(--surface-2); }
 
     /* Screens */
     .screen { display: none; }
@@ -392,8 +397,19 @@
 
     var DATA = null;          // { types, entries }
     var nextId = 1000;
+    var STORE_KEY = 'chaos-organizer-v1';
 
     var el = function (id) { return document.getElementById(id); };
+
+    // ---- Persist (сохраняем на устройстве, чтобы записи не сбрасывались) ----
+    function save() {
+      if (!DATA) return;
+      try {
+        localStorage.setItem(STORE_KEY, JSON.stringify({
+          types: DATA.types, projects: DATA.projects, entries: DATA.entries, nextId: nextId
+        }));
+      } catch (e) {}
+    }
 
     function toast(msg) {
       var t = el('toast');
@@ -438,6 +454,19 @@
 
     // ---- Load data ----
     function boot() {
+      // 1) Сначала пробуем сохранённое на устройстве — это «живое» состояние приложения
+      var saved = null;
+      try { saved = JSON.parse(localStorage.getItem(STORE_KEY) || 'null'); } catch (e) {}
+      if (saved && saved.entries) {
+        DATA = saved;
+        if (!DATA.entries) DATA.entries = [];
+        if (!DATA.types) DATA.types = [];
+        if (!DATA.projects) DATA.projects = [];
+        if (saved.nextId) nextId = saved.nextId;
+        render();
+        return;
+      }
+      // 2) Первый запуск — берём стартовый набор из data.json и сохраняем его как рабочее состояние
       fetch('data.json?v=' + Date.now(), { cache: 'no-store' })
         .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
         .then(function (json) {
@@ -445,6 +474,7 @@
           if (!DATA.entries) DATA.entries = [];
           if (!DATA.types) DATA.types = [];
           if (!DATA.projects) DATA.projects = [];
+          save();
           render();
         })
         .catch(function (err) { showFallback(err); });
@@ -477,6 +507,7 @@
       renderLists();
       renderProjects();
       renderTypes();
+      save();
     }
 
     function projectById(id) {
@@ -538,6 +569,7 @@
         c.querySelector('.check').addEventListener('click', function () {
           t.done = !t.done;
           renderWork();
+          save();
         });
         wrap.appendChild(c);
       });
@@ -681,6 +713,7 @@
         '</div>' +
         '<div class="triage-actions">' +
           '<button class="btn-accent" id="triage-confirm" style="width:100%;height:50px;">Готово</button>' +
+          '<button class="triage-del" id="triage-del">🗑️ Удалить запись</button>' +
         '</div>';
 
       body.querySelector('.triage-card .body').textContent = entry.text;
@@ -712,6 +745,20 @@
       });
 
       el('triage-confirm').addEventListener('click', confirmTriage);
+
+      var delBtn = el('triage-del');
+      if (delBtn) delBtn.addEventListener('click', deleteTriageEntry);
+    }
+
+    function deleteTriageEntry() {
+      var entry = triageQueue[triageIndex];
+      var idx = DATA.entries.indexOf(entry);
+      if (idx > -1) DATA.entries.splice(idx, 1);
+      triageIndex++;
+      render();
+      renderTriageStep();
+      toast('Запись удалена');
+      if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.impactOccurred('medium'); } catch (e) {} }
     }
 
     function projectSelectHtml() {
