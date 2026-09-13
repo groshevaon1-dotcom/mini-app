@@ -278,6 +278,27 @@
     .list-view .item { padding: 18px; margin-bottom: 12px; }
     .list-view .item .it-txt { font-size: 15px; color: var(--ink); line-height: 1.45; }
     .list-view .item .it-meta { font-size: 12px; color: var(--ink-soft); margin-top: 8px; line-height: 1.4; }
+
+    /* Eisenhower matrix */
+    .matrix-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+    .mq { padding: 14px; }
+    .mq-h { display: flex; align-items: center; gap: 10px; }
+    .mq-ic { font-size: 20px; flex: 0 0 auto; }
+    .mq-t { font-weight: 600; font-size: 14px; line-height: 1.2; color: var(--forest); }
+    .mq-s { font-size: 11px; color: var(--ink-soft); margin-top: 2px; }
+    .mq-cnt { margin-left: auto; min-width: 24px; height: 24px; padding: 0 7px; border-radius: 12px; background: var(--shoot); color: var(--forest); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex: 0 0 auto; }
+    .mq-list { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+    .mq-item { background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; font-size: 13px; line-height: 1.35; cursor: pointer; }
+    .mq-item.done { text-decoration: line-through; color: var(--ink-soft); }
+    .mq-empty { color: var(--ink-soft); font-size: 12px; padding: 4px 2px; }
+    .mu-item { padding: 14px; margin-bottom: 10px; }
+    .mu-txt { font-size: 14px; line-height: 1.4; }
+    .mu-btns { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 10px; }
+    .mu-b { border: 1px solid var(--line); background: var(--surface-2); color: var(--ink); font: inherit; font-weight: 600; font-size: 12px; border-radius: 10px; padding: 9px 6px; cursor: pointer; transition: transform .1s ease; }
+    .mu-b:active { transform: scale(0.97); background: var(--clay); }
+    .eisen-pick { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 12px; }
+    .eisen-pick button { border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: inherit; font-weight: 600; font-size: 12px; border-radius: 12px; padding: 11px 8px; cursor: pointer; display: flex; align-items: center; gap: 7px; text-align: left; transition: all .12s ease; }
+    .eisen-pick button.sel { border-color: var(--brass); background: var(--clay); color: var(--burn); }
   </style>
 </head>
 <body>
@@ -321,6 +342,7 @@
       <!-- 3. Work today -->
       <div class="section-title">Сегодня / В работе</div>
       <div class="work" id="work-list"></div>
+      <button class="export-btn" id="matrix-btn" style="margin-top:12px;">🎯 Матрица Эйзенхауэра</button>
 
       <!-- 3b. Lists: waiting / someday -->
       <div class="section-title">Списки</div>
@@ -377,6 +399,15 @@
         <div class="ti">Обзор недели<small>Что застряло и что в работе</small></div>
       </div>
       <div id="review-body"></div>
+    </div>
+
+    <!-- MATRIX SCREEN -->
+    <div id="screen-matrix" class="screen">
+      <div class="triage-top">
+        <button class="back" id="matrix-back">←</button>
+        <div class="ti">Матрица Эйзенхауэра<small>Задачи по срочности и важности</small></div>
+      </div>
+      <div id="matrix-body"></div>
     </div>
   </div>
 
@@ -692,6 +723,13 @@
     var triageIndex = 0;
     var triagePick = null;
     var triageStatus = 'today';
+    var triageEisen = null;
+
+    function eisenPickHtml() {
+      return EISEN.map(function (q) {
+        return '<button data-eisen="' + q.id + '"><span class="ic">' + q.ic + '</span>' + q.t + '</button>';
+      }).join('');
+    }
 
     function openTriage() {
       triageQueue = DATA.entries.filter(function (e) { return e.type === 'inbox'; });
@@ -704,6 +742,7 @@
     function renderTriageStep() {
       triagePick = null;
       triageStatus = 'today';
+      triageEisen = null;
       var total = triageQueue.length;
       var body = el('triage-body');
 
@@ -742,6 +781,8 @@
             '<button data-status="waiting">Ждёт</button>' +
             '<button data-status="someday">Когда-нибудь</button>' +
           '</div>' +
+          '<span class="seg-label">Приоритет (матрица Эйзенхауэра)</span>' +
+          '<div class="eisen-pick" id="eisen-pick">' + eisenPickHtml() + '</div>' +
           '<div class="fld"><label>Следующий шаг (обязательно для задачи)</label>' +
           '<input id="next-step" placeholder="Например: позвонить в четверг в 15:00" /></div>' +
           '<div class="fld"><label>Срок (необязательно)</label>' +
@@ -777,6 +818,14 @@
         b.addEventListener('click', function () {
           triageStatus = b.getAttribute('data-status');
           body.querySelectorAll('#status-seg button').forEach(function (x) { x.classList.remove('sel'); });
+          b.classList.add('sel');
+        });
+      });
+
+      body.querySelectorAll('#eisen-pick button').forEach(function (b) {
+        b.addEventListener('click', function () {
+          triageEisen = b.getAttribute('data-eisen');
+          body.querySelectorAll('#eisen-pick button').forEach(function (x) { x.classList.remove('sel'); });
           b.classList.add('sel');
         });
       });
@@ -817,6 +866,7 @@
         var due = el('due').value;
         entry.due = due || null;
         entry.status = triageStatus || 'today';
+        entry.eisen = triageEisen || null;
         var ps = el('proj-select');
         entry.projectId = (ps && ps.value) ? ps.value : null;
       } else {
@@ -998,9 +1048,73 @@
       } catch (e) { toast('Не удалось скопировать'); }
     }
 
+    // ---- Eisenhower matrix ----
+    var EISEN = [
+      { id: 'do',       t: 'Сделать сейчас', s: 'Срочно · Важно',       ic: '🔥' },
+      { id: 'plan',     t: 'Запланировать',  s: 'Важно · Не срочно',    ic: '📅' },
+      { id: 'delegate', t: 'Делегировать',   s: 'Срочно · Не важно',    ic: '🤝' },
+      { id: 'drop',     t: 'Потом / убрать', s: 'Не срочно · Не важно', ic: '🌙' }
+    ];
+    function eisenById(id) { for (var i = 0; i < EISEN.length; i++) if (EISEN[i].id === id) return EISEN[i]; return null; }
+
+    function openMatrix() { renderMatrix(); showScreen('matrix'); }
+
+    function renderMatrix() {
+      var tasks = DATA.entries.filter(function (e) { return e.type === 'task'; });
+      var unset = tasks.filter(function (t) { return !t.eisen; });
+      var body = el('matrix-body');
+      var html = '';
+      if (unset.length) {
+        html += '<div class="review-block-title">Не распределено — куда отнести?</div><div id="matrix-unset"></div>';
+      }
+      html += '<div class="review-block-title">Матрица</div><div class="matrix-grid">';
+      EISEN.forEach(function (q) {
+        var cnt = tasks.filter(function (t) { return t.eisen === q.id; }).length;
+        html += '<div class="card mq">' +
+          '<div class="mq-h"><span class="mq-ic">' + q.ic + '</span><div><div class="mq-t">' + q.t + '</div><div class="mq-s">' + q.s + '</div></div><span class="mq-cnt">' + cnt + '</span></div>' +
+          '<div class="mq-list" data-q="' + q.id + '"></div>' +
+          '</div>';
+      });
+      html += '</div>';
+      body.innerHTML = html;
+
+      EISEN.forEach(function (q) {
+        var wrap = body.querySelector('.mq-list[data-q="' + q.id + '"]');
+        var items = tasks.filter(function (t) { return t.eisen === q.id; });
+        if (!items.length) { wrap.innerHTML = '<div class="mq-empty">пусто</div>'; return; }
+        items.forEach(function (t) {
+          var d = document.createElement('div');
+          d.className = 'mq-item' + (t.done ? ' done' : '');
+          d.textContent = t.text;
+          d.title = 'Нажми, чтобы вернуть в «не распределено»';
+          d.addEventListener('click', function () { t.eisen = null; save(); renderMatrix(); toast('Вернула в «не распределено»'); });
+          wrap.appendChild(d);
+        });
+      });
+
+      if (unset.length) {
+        var uwrap = el('matrix-unset');
+        unset.forEach(function (t) {
+          var row = document.createElement('div');
+          row.className = 'card mu-item';
+          row.innerHTML = '<div class="mu-txt"></div><div class="mu-btns"></div>';
+          row.querySelector('.mu-txt').textContent = t.text;
+          var bwrap = row.querySelector('.mu-btns');
+          EISEN.forEach(function (q) {
+            var b = document.createElement('button');
+            b.className = 'mu-b';
+            b.textContent = q.ic + ' ' + q.t;
+            b.addEventListener('click', function () { t.eisen = q.id; save(); renderMatrix(); toast('→ ' + q.t); });
+            bwrap.appendChild(b);
+          });
+          uwrap.appendChild(row);
+        });
+      }
+    }
+
     // ---- Navigation ----
     function showScreen(name) {
-      ['main', 'triage', 'list', 'review'].forEach(function (s) {
+      ['main', 'triage', 'list', 'review', 'matrix'].forEach(function (s) {
         el('screen-' + s).classList.toggle('active', s === name);
       });
       window.scrollTo(0, 0);
@@ -1026,6 +1140,8 @@
       el('list-back').addEventListener('click', backToMain);
       el('review-btn').addEventListener('click', openReview);
       el('review-back').addEventListener('click', backToMain);
+      el('matrix-btn').addEventListener('click', openMatrix);
+      el('matrix-back').addEventListener('click', backToMain);
       el('tile-waiting').addEventListener('click', function () { openStatusList('waiting', '⏳ Ждёт'); });
       el('tile-someday').addEventListener('click', function () { openStatusList('someday', '🌙 Когда-нибудь'); });
       el('export-btn').addEventListener('click', exportData);
