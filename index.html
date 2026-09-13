@@ -594,6 +594,43 @@
       });
     }
 
+    // ---- Dictation (надиктовка: голос → текст, где поддерживает устройство) ----
+    var recog = null, listening = false;
+    function initDictation() {
+      var btn = el('mic-btn');
+      var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SR) {
+        btn.addEventListener('click', function () {
+          toast('Надиктовка недоступна в этом Telegram — напиши текстом 🙏');
+        });
+        return;
+      }
+      btn.addEventListener('click', function () {
+        if (listening) { try { recog.stop(); } catch (e) {} return; }
+        var ta = el('capture-input');
+        var base = ta.value.trim();
+        recog = new SR();
+        recog.lang = 'ru-RU';
+        recog.interimResults = true;
+        recog.continuous = false;
+        recog.onstart = function () { listening = true; btn.classList.add('rec'); toast('Говори… 🎙️'); };
+        recog.onresult = function (ev) {
+          var txt = '';
+          for (var i = 0; i < ev.results.length; i++) txt += ev.results[i][0].transcript;
+          ta.value = (base ? base + ' ' : '') + txt;
+          autogrow(ta);
+        };
+        recog.onerror = function (ev) {
+          listening = false; btn.classList.remove('rec');
+          if (ev.error === 'not-allowed' || ev.error === 'service-not-allowed') toast('Нет доступа к микрофону — разреши в настройках');
+          else if (ev.error === 'no-speech') toast('Не расслышала — попробуй ещё раз');
+          else toast('Надиктовка тут недоступна — напиши текстом');
+        };
+        recog.onend = function () { listening = false; btn.classList.remove('rec'); };
+        try { recog.start(); } catch (e) { listening = false; btn.classList.remove('rec'); toast('Не удалось запустить микрофон'); }
+      });
+    }
+
     // ---- Capture ----
     var pendingAtt = [];
 
@@ -981,10 +1018,7 @@
       ta.addEventListener('keydown', function (ev) {
         if ((ev.metaKey || ev.ctrlKey) && ev.key === 'Enter') { ev.preventDefault(); saveCapture(); }
       });
-      el('mic-btn').addEventListener('click', function () {
-        this.classList.toggle('rec');
-        toast(this.classList.contains('rec') ? 'Диктовка (демо) — печатай текст' : 'Диктовка выключена');
-      });
+      initDictation();
       el('attach-btn').addEventListener('click', function () { el('file-input').click(); });
       el('file-input').addEventListener('change', function () { handleFiles(this.files); this.value = ''; });
       el('triage-btn').addEventListener('click', openTriage);
