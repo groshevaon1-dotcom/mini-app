@@ -1,0 +1,136 @@
+{
+  "types": [
+    { "id": "thought", "title": "Мысли",   "icon": "💭" },
+    { "id": "idea",    "title": "Идеи",    "icon": "💡" },
+    { "id": "task",    "title": "Задачи",  "icon": "✅" },
+    { "id": "insight", "title": "Инсайты", "icon": "✨" }
+  ],
+  "projects": [
+    {
+      "id": "p1",
+      "title": "Мини-апп «Органайзер Хаоса»",
+      "outcome": "Рабочий прототип в Telegram, которым пользуюсь ежедневно 2 недели",
+      "createdAt": "2026-09-10T18:00:00"
+    },
+    {
+      "id": "p2",
+      "title": "Канал про разгрузку головы",
+      "outcome": "Серия из 5 постов опубликована",
+      "createdAt": "2026-09-07T12:00:00"
+    }
+  ],
+  "entries": [
+    {
+      "id": 1,
+      "text": "Кажется, вечерняя разгрузка реально помогает быстрее засыпать — надо закрепить как ритуал",
+      "type": "inbox",
+      "status": "inbox",
+      "nextStep": "",
+      "due": null,
+      "projectId": null,
+      "createdAt": "2026-09-11T08:12:00",
+      "source": "voice"
+    },
+    {
+      "id": 2,
+      "text": "Позвонить по поводу договора в четверг",
+      "type": "inbox",
+      "status": "inbox",
+      "nextStep": "",
+      "due": null,
+      "projectId": null,
+      "createdAt": "2026-09-11T09:41:00",
+      "source": "text",
+      "attachments": [{ "name": "договор.pdf", "kind": "file" }]
+    },
+    {
+      "id": 3,
+      "text": "Идея для канала: разбор, почему списки дел не работают без следующего шага",
+      "type": "inbox",
+      "status": "inbox",
+      "nextStep": "",
+      "due": null,
+      "projectId": null,
+      "createdAt": "2026-09-11T10:05:00",
+      "source": "voice"
+    },
+    {
+      "id": 4,
+      "text": "Собрать прототип мини-аппа для захвата мыслей",
+      "type": "task",
+      "status": "today",
+      "nextStep": "Накидать структуру главного экрана на бумаге",
+      "due": "2026-09-11",
+      "projectId": "p1",
+      "createdAt": "2026-09-10T19:30:00",
+      "source": "text",
+      "attachments": [{ "name": "скетч_экрана.png", "kind": "image" }]
+    },
+    {
+      "id": 5,
+      "text": "Подготовить пост про эффект Зейгарник",
+      "type": "task",
+      "status": "today",
+      "nextStep": "Выписать 3 тезиса из исследования Masicampo & Baumeister",
+      "due": "2026-09-11",
+      "projectId": "p2",
+      "createdAt": "2026-09-10T21:15:00",
+      "source": "text"
+    },
+    {
+      "id": 6,
+      "text": "Сделать шаблон еженедельного обзора с фиксированным слотом в календаре",
+      "type": "task",
+      "status": "waiting",
+      "nextStep": "Дождаться ответа по расписанию",
+      "due": null,
+      "projectId": null,
+      "createdAt": "2026-09-09T14:20:00",
+      "source": "text"
+    },
+    {
+      "id": 7,
+      "text": "Мозг отпускает мысль не когда она записана, а когда ей назначен конкретный следующий шаг",
+      "type": "insight",
+      "status": "inbox",
+      "nextStep": "",
+      "due": null,
+      "projectId": null,
+      "createdAt": "2026-09-08T11:50:00",
+      "source": "text"
+    },
+    {
+      "id": 8,
+      "text": "А что если разбор входящих делать под спокойную музыку каждый вечер в 21:00",
+      "type": "thought",
+      "status": "inbox",
+      "nextStep": "",
+      "due": null,
+      "projectId": null,
+      "createdAt": "2026-09-08T22:03:00",
+      "source": "voice"
+    },
+    {
+      "id": 9,
+      "text": "Название для рубрики про разгрузку головы — «Выгрузка»",
+      "type": "idea",
+      "status": "inbox",
+      "nextStep": "",
+      "due": null,
+      "projectId": null,
+      "createdAt": "2026-09-07T16:40:00",
+      "source": "text"
+    },
+    {
+      "id": 10,
+      "text": "Изучить семантический поиск по заметкам (embeddings)",
+      "type": "task",
+      "status": "someday",
+      "nextStep": "Прочитать про pgvector и FAISS",
+      "due": null,
+      "projectId": "p1",
+      "createdAt": "2026-09-06T10:00:00",
+      "source": "text"
+    }
+  ]
+}

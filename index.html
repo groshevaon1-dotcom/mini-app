@@ -1,0 +1,956 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+  <title>Органайзер Хаоса</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Literata:opsz,wght@7..72,400;7..72,600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      /* Terra Nova — «Лесная редакционность» */
+      --bg-top: #F7F6F1;
+      --bg-bot: #E7ECE6;
+      --surface: #FBFAF6;
+      --surface-2: #F1F0E9;
+      --ink: #1B221C;
+      --ink-soft: #5C6659;
+      --line: #D2D6C9;
+      --forest: #1E3D2B;
+      --spruce: #2C5439;
+      --lake: #2C6382;
+      --shoot: #CFE0C6;
+      --clay: #F2E2D0;
+      --brass: #B2622D;
+      --burn: #8C491A;
+      --brass-wash: rgba(178, 98, 45, 0.10);
+      --shadow-hairline: 0 1px 2px rgba(24,40,28,.10);
+      --shadow-soft: 0 3px 14px rgba(24,40,28,.10);
+      --shadow-float: 0 16px 40px rgba(24,40,28,.16);
+      --radius: 22px;
+      --radius-sm: 14px;
+      --radius-bend: 30px 10px 30px 10px;
+      --font-display: "Literata", Georgia, "Times New Roman", serif;
+      --font-body: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body { margin: 0; padding: 0; }
+    body {
+      background: linear-gradient(180deg, var(--bg-top) 0%, var(--bg-bot) 100%);
+      background-attachment: fixed;
+      color: var(--ink);
+      font-family: var(--font-body);
+      font-size: 16px; line-height: 1.6;
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+    .app { max-width: 560px; margin: 0 auto; padding: 26px 18px 110px; }
+
+    /* Header */
+    .head { margin: 4px 2px 24px; display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+    .head h1 {
+      font-family: var(--font-display); font-weight: 600; font-size: 32px; line-height: 1.05;
+      letter-spacing: -0.02em; margin: 0; color: var(--forest);
+    }
+    .head h1 .dot { color: var(--brass); }
+    .head .sub {
+      display: block; font-size: 12px; color: var(--lake); margin-top: 10px; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.16em;
+    }
+    .review-pill {
+      flex: 0 0 auto; border: 1px solid var(--line); background: var(--surface); color: var(--forest);
+      font: inherit; font-weight: 600; font-size: 13px; border-radius: 999px; padding: 9px 14px; cursor: pointer;
+      box-shadow: var(--shadow-hairline); white-space: nowrap; margin-top: 4px;
+    }
+    .review-pill:active { background: var(--surface-2); }
+
+    .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow-hairline); }
+    .section-title {
+      font-size: 12px; font-weight: 600; color: var(--lake); margin: 28px 6px 12px;
+      text-transform: uppercase; letter-spacing: 0.16em;
+    }
+
+    /* Capture */
+    .capture { padding: 20px; box-shadow: var(--shadow-soft); }
+    .capture textarea {
+      width: 100%; border: none; resize: none; outline: none; background: transparent;
+      font: inherit; font-size: 17px; color: var(--ink); min-height: 28px; max-height: 130px; line-height: 1.45;
+    }
+    .capture textarea::placeholder { color: #A7AEA0; }
+    .cap-actions { display: flex; align-items: center; justify-content: space-between; margin-top: 14px; }
+    .cap-tools { display: flex; gap: 10px; }
+    .icon-btn {
+      width: 46px; height: 46px; border-radius: 14px; border: 1px solid var(--line); cursor: pointer;
+      display: flex; align-items: center; justify-content: center; font-size: 20px;
+      background: var(--surface-2); color: var(--ink); flex: 0 0 auto; transition: transform .1s ease;
+    }
+    .icon-btn:active { transform: scale(0.94); }
+    .icon-btn.mic.rec { background: var(--brass); color: #fff; border-color: var(--brass); animation: pulse 1s infinite; }
+    @keyframes pulse { 0%,100%{ transform: scale(1);} 50%{ transform: scale(1.08);} }
+    .btn-accent {
+      border: none; cursor: pointer; background: var(--brass); color: #F7F6F1;
+      font: inherit; font-weight: 600; border-radius: 14px; padding: 0 24px; height: 46px; font-size: 15px;
+      flex: 0 0 auto; box-shadow: var(--shadow-soft); transition: transform .1s ease, background .15s ease;
+    }
+    .btn-accent:active { transform: translateY(1px); }
+    .btn-accent:hover { background: var(--burn); }
+    .capture .hint { margin-top: 14px; font-size: 13px; color: var(--ink-soft); line-height: 1.45; }
+
+    /* Attachments */
+    .att-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    .chip-att {
+      display: inline-flex; align-items: center; gap: 7px; background: var(--surface-2); border: 1px solid var(--line);
+      border-radius: 12px; padding: 6px 10px; font-size: 12px; color: var(--ink); font-weight: 500; max-width: 100%;
+    }
+    .chip-att .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 150px; }
+    .chip-att img { width: 24px; height: 24px; border-radius: 7px; object-fit: cover; flex: 0 0 auto; }
+    .chip-att .ic { font-size: 15px; }
+    .chip-att .x { cursor: pointer; color: var(--ink-soft); font-weight: 800; padding-left: 2px; }
+
+    /* Inbox */
+    .inbox { padding: 18px; display: flex; align-items: center; gap: 16px; }
+    .inbox .count {
+      width: 62px; height: 62px; border-radius: var(--radius-bend); background: var(--clay); color: var(--burn);
+      display: flex; align-items: center; justify-content: center; font-size: 26px; font-weight: 700; flex: 0 0 auto;
+      font-family: var(--font-display);
+    }
+    .inbox .meta { flex: 1; }
+    .inbox .meta .t { font-weight: 600; font-size: 17px; }
+    .inbox .meta .d { font-size: 13px; color: var(--ink-soft); margin-top: 3px; line-height: 1.35; }
+    .inbox .go { background: var(--forest); }
+    .inbox .go:hover { background: var(--spruce); }
+    .inbox .go:disabled { opacity: 0.35; box-shadow: none; }
+
+    /* Work today */
+    .work { display: flex; flex-direction: column; gap: 12px; }
+    .task-card { padding: 18px; display: flex; gap: 14px; align-items: flex-start; }
+    .task-card .check {
+      width: 26px; height: 26px; border-radius: 8px; border: 2px solid var(--line); margin-top: 1px; flex: 0 0 auto; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; font-size: 15px; color: transparent; transition: all .15s ease;
+    }
+    .task-card.done .check { background: var(--forest); border-color: var(--forest); color: #fff; }
+    .task-card.done .txt .title { text-decoration: line-through; color: var(--ink-soft); }
+    .task-card .txt { flex: 1; }
+    .task-card .title { font-weight: 600; font-size: 16px; line-height: 1.35; }
+    .task-card .next {
+      margin-top: 10px; font-size: 13px; color: var(--burn); display: flex; gap: 6px; align-items: baseline;
+      background: var(--brass-wash); padding: 8px 12px; border-radius: 12px; line-height: 1.35;
+    }
+    .task-card .next b { font-weight: 700; white-space: nowrap; }
+    .more-note { text-align: center; font-size: 13px; color: var(--ink-soft); padding: 6px; }
+    .empty-mini { padding: 22px; color: var(--ink-soft); font-size: 14px; text-align: center; line-height: 1.5; }
+
+    /* Type filters */
+    .types { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+    .type-chip { padding: 18px; display: flex; align-items: center; gap: 12px; cursor: pointer; transition: transform .1s ease; }
+    .type-chip:active { transform: scale(0.97); }
+    .type-chip .ic { font-size: 24px; }
+    .type-chip .nm { font-weight: 600; font-size: 15px; flex: 1; }
+    .type-chip .cnt {
+      min-width: 28px; height: 28px; padding: 0 9px; border-radius: 14px; background: var(--shoot); color: var(--forest);
+      display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700;
+    }
+
+    /* Export */
+    .export-group { display: flex; flex-direction: column; gap: 10px; margin-top: 26px; }
+    .export-btn {
+      width: 100%; border: 1px solid var(--line); background: var(--surface);
+      color: var(--forest); font: inherit; font-weight: 600; font-size: 15px; border-radius: 16px; padding: 17px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 9px; box-shadow: var(--shadow-hairline);
+    }
+    .export-btn:active { background: var(--surface-2); }
+
+    /* Projects */
+    .project-card { padding: 18px; display: flex; gap: 14px; align-items: flex-start; }
+    .project-card .pic { font-size: 22px; margin-top: 1px; }
+    .project-card .ptxt { flex: 1; }
+    .project-card .ptitle { font-weight: 600; font-size: 16px; line-height: 1.3; }
+    .project-card .poutcome { font-size: 13px; color: var(--ink-soft); margin-top: 6px; line-height: 1.4; }
+    .project-card .poutcome b { color: var(--spruce); font-weight: 600; }
+    .project-card .pcount {
+      flex: 0 0 auto; min-width: 28px; height: 28px; padding: 0 9px; border-radius: 14px; background: var(--shoot);
+      color: var(--forest); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700;
+    }
+
+    /* Lists row (Waiting / Someday) */
+    .lists-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+    .list-tile { padding: 18px; cursor: pointer; transition: transform .1s ease; }
+    .list-tile:active { transform: scale(0.97); }
+    .list-tile .lt-top { display: flex; align-items: center; justify-content: space-between; }
+    .list-tile .lt-ic { font-size: 22px; }
+    .list-tile .lt-cnt { font-family: var(--font-display); font-size: 22px; font-weight: 600; color: var(--forest); }
+    .list-tile .lt-nm { margin-top: 8px; font-weight: 600; font-size: 14px; }
+    .list-tile .lt-sub { font-size: 12px; color: var(--ink-soft); margin-top: 2px; }
+
+    /* Review screen */
+    .review-hero { padding: 22px 20px; box-shadow: var(--shadow-soft); }
+    .review-hero .rh-line { font-family: var(--font-display); font-size: 19px; color: var(--forest); line-height: 1.4; }
+    .review-stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-top: 14px; }
+    .stat { padding: 16px 18px; }
+    .stat .sv { font-family: var(--font-display); font-size: 28px; font-weight: 600; color: var(--forest); }
+    .stat .sl { font-size: 12px; color: var(--ink-soft); margin-top: 4px; }
+    .review-block-title { font-size: 12px; font-weight: 600; color: var(--lake); margin: 26px 6px 12px; text-transform: uppercase; letter-spacing: 0.14em; }
+    .stuck-item { padding: 16px 18px; margin-bottom: 10px; }
+    .stuck-item .si-txt { font-size: 15px; color: var(--ink); line-height: 1.4; }
+    .stuck-item .si-meta { font-size: 12px; color: var(--burn); margin-top: 6px; font-weight: 600; }
+
+    /* Status segmented + let-go */
+    .seg-label { display: block; font-size: 12px; color: var(--ink-soft); margin: 4px 0 8px; font-weight: 600; }
+    .seg { display: flex; gap: 8px; margin-bottom: 12px; }
+    .seg button {
+      flex: 1; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: inherit; font-weight: 600;
+      font-size: 13px; border-radius: 12px; padding: 11px 6px; cursor: pointer; transition: all .12s ease;
+    }
+    .seg button.sel { border-color: var(--forest); background: var(--forest); color: #F7F6F1; }
+    .letgo {
+      margin-top: 12px; width: 100%; border: 1px dashed var(--brass); background: var(--brass-wash); color: var(--burn);
+      font: inherit; font-weight: 600; font-size: 14px; border-radius: 14px; padding: 13px; cursor: pointer;
+    }
+    .letgo:active { background: var(--clay); }
+
+    /* Screens */
+    .screen { display: none; }
+    .screen.active { display: block; }
+
+    .triage-top { display: flex; align-items: center; gap: 14px; margin: 4px 2px 24px; }
+    .back {
+      width: 44px; height: 44px; border-radius: 14px; border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+      font-size: 20px; cursor: pointer; flex: 0 0 auto; box-shadow: var(--shadow-hairline);
+    }
+    .triage-top .ti { font-family: var(--font-display); font-weight: 600; font-size: 22px; letter-spacing: -0.02em; color: var(--forest); }
+    .triage-top .ti small { display: block; font-family: var(--font-body); font-weight: 600; font-size: 11px; color: var(--lake); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.14em; }
+    .triage-card { padding: 24px 20px; box-shadow: var(--shadow-soft); }
+    .triage-card .src { font-size: 11px; color: var(--lake); margin-bottom: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.12em; }
+    .triage-card .body { font-family: var(--font-display); font-size: 21px; font-weight: 400; line-height: 1.4; color: var(--ink); }
+    .two-min {
+      margin-top: 14px; font-size: 13px; color: var(--ink-soft); background: var(--surface-2); border: 1px dashed var(--line);
+      border-radius: 12px; padding: 10px 14px; line-height: 1.4;
+    }
+    .two-min b { color: var(--burn); }
+    .pick-label { font-size: 12px; color: var(--lake); margin: 24px 6px 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.14em; }
+    .pick { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+    .pick button {
+      border: 1px solid var(--line); cursor: pointer; background: var(--surface); color: var(--ink); font: inherit; font-weight: 600;
+      border-radius: var(--radius-sm); padding: 16px; font-size: 15px; display: flex; align-items: center; gap: 10px; transition: all .12s ease;
+    }
+    .pick button.sel { border-color: var(--brass); background: var(--clay); color: var(--burn); }
+    .pick button .ic { font-size: 20px; }
+    .task-extra { margin-top: 16px; display: none; }
+    .task-extra.show { display: block; }
+    .task-extra .fld { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 6px 16px; margin-bottom: 12px; }
+    .task-extra label { display: block; font-size: 12px; color: var(--ink-soft); margin: 10px 0 2px; font-weight: 600; }
+    .task-extra input {
+      width: 100%; border: none; outline: none; background: transparent; font: inherit; font-size: 15px;
+      color: var(--ink); padding: 4px 0 12px;
+    }
+    .task-extra input::placeholder { color: #A7AEA0; }
+    .triage-actions { margin-top: 20px; }
+    .triage-done-all { text-align: center; padding: 54px 16px; }
+    .triage-done-all .em { font-size: 52px; }
+    .triage-done-all .m { margin-top: 16px; font-family: var(--font-display); font-size: 20px; color: var(--forest); line-height: 1.5; }
+
+    /* Toast */
+    .toast {
+      position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%) translateY(20px);
+      background: var(--forest); color: #F7F6F1; padding: 13px 20px; border-radius: 14px; font-size: 14px; font-weight: 500;
+      box-shadow: var(--shadow-float); opacity: 0; pointer-events: none; transition: all .25s ease; z-index: 50;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* Fallback */
+    .fallback { text-align: center; padding: 70px 28px; }
+    .fallback .em { font-size: 52px; }
+    .fallback h2 { font-family: var(--font-display); font-size: 22px; margin: 16px 0 8px; color: var(--forest); }
+    .fallback p { color: var(--ink-soft); font-size: 14px; line-height: 1.55; }
+    .fallback button { margin-top: 22px; }
+
+    /* Filtered list */
+    .list-view .item { padding: 18px; margin-bottom: 12px; }
+    .list-view .item .it-txt { font-size: 15px; color: var(--ink); line-height: 1.45; }
+    .list-view .item .it-meta { font-size: 12px; color: var(--ink-soft); margin-top: 8px; line-height: 1.4; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <!-- MAIN SCREEN -->
+    <div id="screen-main" class="screen active">
+      <div class="head">
+        <div>
+          <h1>Органайзер Хаоса<span class="dot">.</span></h1>
+          <span class="sub" id="today-label"></span>
+        </div>
+        <button class="review-pill" id="review-btn">🗓 Обзор</button>
+      </div>
+
+      <!-- 1. Capture -->
+      <div class="card capture">
+        <textarea id="capture-input" rows="1" placeholder="Записать мысль…"></textarea>
+        <div class="att-row" id="pending-att"></div>
+        <div class="cap-actions">
+          <div class="cap-tools">
+            <button class="icon-btn" id="attach-btn" title="Вложение">📎</button>
+            <button class="icon-btn mic" id="mic-btn" title="Голосом">🎙️</button>
+          </div>
+          <button class="btn-accent" id="save-btn">Записать</button>
+        </div>
+        <div class="hint">Пиши не думая, куда — всё падает во «Входящие», разберёшь потом.</div>
+        <input type="file" id="file-input" multiple accept="image/*,application/pdf,.doc,.docx,.txt" style="display:none" />
+      </div>
+
+      <!-- 2. Inbox -->
+      <div class="section-title">Входящие</div>
+      <div class="card inbox">
+        <div class="count" id="inbox-count">0</div>
+        <div class="meta">
+          <div class="t">Не разобрано</div>
+          <div class="d" id="inbox-sub">Всё разобрано — чисто 🌿</div>
+        </div>
+        <button class="btn-accent go" id="triage-btn">Разобрать</button>
+      </div>
+
+      <!-- 3. Work today -->
+      <div class="section-title">Сегодня / В работе</div>
+      <div class="work" id="work-list"></div>
+
+      <!-- 3b. Lists: waiting / someday -->
+      <div class="section-title">Списки</div>
+      <div class="lists-row">
+        <div class="card list-tile" id="tile-waiting">
+          <div class="lt-top"><span class="lt-ic">⏳</span><span class="lt-cnt" id="waiting-cnt">0</span></div>
+          <div class="lt-nm">Ждёт</div>
+          <div class="lt-sub">Отложено, ждёт события</div>
+        </div>
+        <div class="card list-tile" id="tile-someday">
+          <div class="lt-top"><span class="lt-ic">🌙</span><span class="lt-cnt" id="someday-cnt">0</span></div>
+          <div class="lt-nm">Когда-нибудь</div>
+          <div class="lt-sub">Не сейчас, может потом</div>
+        </div>
+      </div>
+
+      <!-- 3c. Projects -->
+      <div class="section-title">Проекты</div>
+      <div class="work" id="project-list"></div>
+
+      <!-- 4. Type filters -->
+      <div class="section-title">По типам</div>
+      <div class="types" id="type-tiles"></div>
+
+      <!-- 5. Export -->
+      <div class="export-group">
+        <button class="export-btn" id="export-btn">⬇️ Выгрузить в .txt</button>
+        <button class="export-btn" id="notion-btn">📋 Копировать для Notion</button>
+      </div>
+    </div>
+
+    <!-- TRIAGE SCREEN -->
+    <div id="screen-triage" class="screen">
+      <div class="triage-top">
+        <button class="back" id="triage-back">←</button>
+        <div class="ti">Разбор входящих<small id="triage-progress"></small></div>
+      </div>
+      <div id="triage-body"></div>
+    </div>
+
+    <!-- FILTER LIST SCREEN -->
+    <div id="screen-list" class="screen">
+      <div class="triage-top">
+        <button class="back" id="list-back">←</button>
+        <div class="ti" id="list-title">Записи</div>
+      </div>
+      <div class="list-view" id="list-body"></div>
+    </div>
+
+    <!-- REVIEW SCREEN -->
+    <div id="screen-review" class="screen">
+      <div class="triage-top">
+        <button class="back" id="review-back">←</button>
+        <div class="ti">Обзор недели<small>Что застряло и что в работе</small></div>
+      </div>
+      <div id="review-body"></div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    // ---- Telegram init ----
+    var tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+    if (tg) {
+      try {
+        tg.ready();
+        tg.expand();
+        if (tg.setBackgroundColor) tg.setBackgroundColor('#F7F6F1');
+        if (tg.setHeaderColor) tg.setHeaderColor('#F7F6F1');
+        if (tg.BackButton) tg.BackButton.onClick(function () { backToMain(); });
+      } catch (e) {}
+    }
+
+    var DATA = null;          // { types, entries }
+    var nextId = 1000;
+
+    var el = function (id) { return document.getElementById(id); };
+
+    function toast(msg) {
+      var t = el('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      clearTimeout(t._h);
+      t._h = setTimeout(function () { t.classList.remove('show'); }, 1800);
+    }
+
+    function typeById(id) {
+      if (!DATA) return null;
+      for (var i = 0; i < DATA.types.length; i++) if (DATA.types[i].id === id) return DATA.types[i];
+      return null;
+    }
+
+    function fmtTime(iso) {
+      try {
+        var d = new Date(iso);
+        return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }) +
+               ', ' + d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+      } catch (e) { return ''; }
+    }
+
+    function attIcon(kind) { return kind === 'image' ? '🖼️' : (kind === 'voice' ? '🎙️' : '📄'); }
+
+    function attRowHtml(atts) {
+      if (!atts || !atts.length) return '';
+      var chips = atts.map(function (a) {
+        if (a.kind === 'image' && a.url) {
+          return '<span class="chip-att"><img src="' + a.url + '" alt=""><span class="nm">' + escapeHtml(a.name) + '</span></span>';
+        }
+        return '<span class="chip-att"><span class="ic">' + attIcon(a.kind) + '</span><span class="nm">' + escapeHtml(a.name) + '</span></span>';
+      }).join('');
+      return '<div class="att-row">' + chips + '</div>';
+    }
+
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, function (c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+      });
+    }
+
+    // ---- Load data ----
+    function boot() {
+      fetch('data.json?v=' + Date.now(), { cache: 'no-store' })
+        .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(function (json) {
+          DATA = json;
+          if (!DATA.entries) DATA.entries = [];
+          if (!DATA.types) DATA.types = [];
+          if (!DATA.projects) DATA.projects = [];
+          render();
+        })
+        .catch(function (err) { showFallback(err); });
+    }
+
+    function showFallback(err) {
+      var main = el('screen-main');
+      main.innerHTML =
+        '<div class="fallback">' +
+        '<div class="em">🌀</div>' +
+        '<h2>Данные не загрузились</h2>' +
+        '<p>Не удалось прочитать <b>data.json</b>. Проверь, что файл лежит рядом с приложением и открыт через сервер, а не как локальный файл.</p>' +
+        '<button class="btn-accent" onclick="boot()">Попробовать снова</button>' +
+        '</div>';
+    }
+
+    // ---- Render main ----
+    function render() {
+      var d = new Date();
+      el('today-label').textContent = d.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' });
+
+      var inbox = DATA.entries.filter(function (e) { return e.type === 'inbox'; });
+      el('inbox-count').textContent = inbox.length;
+      el('inbox-sub').textContent = inbox.length
+        ? 'Ждут разбора — присвой тип и следующий шаг'
+        : 'Всё разобрано — чисто 🌿';
+      el('triage-btn').disabled = inbox.length === 0;
+
+      renderWork();
+      renderLists();
+      renderProjects();
+      renderTypes();
+    }
+
+    function projectById(id) {
+      if (!id || !DATA.projects) return null;
+      for (var i = 0; i < DATA.projects.length; i++) if (DATA.projects[i].id === id) return DATA.projects[i];
+      return null;
+    }
+
+    function renderLists() {
+      var waiting = DATA.entries.filter(function (e) { return e.type === 'task' && e.status === 'waiting'; }).length;
+      var someday = DATA.entries.filter(function (e) { return e.type === 'task' && e.status === 'someday'; }).length;
+      el('waiting-cnt').textContent = waiting;
+      el('someday-cnt').textContent = someday;
+    }
+
+    function renderProjects() {
+      var wrap = el('project-list');
+      wrap.innerHTML = '';
+      if (!DATA.projects.length) {
+        wrap.innerHTML = '<div class="card empty-mini">Проектов пока нет. Проект — это то, что требует больше одного шага.</div>';
+        return;
+      }
+      DATA.projects.forEach(function (p) {
+        var cnt = DATA.entries.filter(function (e) { return e.projectId === p.id; }).length;
+        var c = document.createElement('div');
+        c.className = 'card project-card';
+        c.innerHTML =
+          '<span class="pic">📁</span>' +
+          '<div class="ptxt"><div class="ptitle"></div><div class="poutcome"><b>Итог:</b> <span></span></div></div>' +
+          '<span class="pcount">' + cnt + '</span>';
+        c.querySelector('.ptitle').textContent = p.title;
+        c.querySelector('.poutcome span').textContent = p.outcome || '—';
+        c.addEventListener('click', function () { openProject(p.id); });
+        wrap.appendChild(c);
+      });
+    }
+
+    function renderWork() {
+      var wrap = el('work-list');
+      wrap.innerHTML = '';
+      var tasks = DATA.entries.filter(function (e) { return e.type === 'task' && e.status === 'today'; });
+
+      if (!tasks.length) {
+        wrap.innerHTML = '<div class="card empty-mini">Пока нет задач в работе. Разбери входящие и назначь до 3 задач на сегодня.</div>';
+        return;
+      }
+      var shown = tasks.slice(0, 3);
+      shown.forEach(function (t) {
+        var c = document.createElement('div');
+        c.className = 'card task-card' + (t.done ? ' done' : '');
+        c.innerHTML =
+          '<div class="check">✓</div>' +
+          '<div class="txt">' +
+            '<div class="title"></div>' +
+            (t.nextStep ? '<div class="next"><b>Следующий шаг:</b><span></span></div>' : '') +
+          '</div>';
+        c.querySelector('.title').textContent = t.text;
+        if (t.nextStep) c.querySelector('.next span').textContent = t.nextStep;
+        c.querySelector('.check').addEventListener('click', function () {
+          t.done = !t.done;
+          renderWork();
+        });
+        wrap.appendChild(c);
+      });
+      if (tasks.length > 3) {
+        var note = document.createElement('div');
+        note.className = 'more-note';
+        note.textContent = 'Ещё ' + (tasks.length - 3) + ' в очереди — лимит «в работе» 3';
+        wrap.appendChild(note);
+      }
+    }
+
+    function renderTypes() {
+      var wrap = el('type-tiles');
+      wrap.innerHTML = '';
+      DATA.types.forEach(function (tp) {
+        var cnt = DATA.entries.filter(function (e) { return e.type === tp.id; }).length;
+        var c = document.createElement('div');
+        c.className = 'card type-chip';
+        c.innerHTML = '<span class="ic">' + tp.icon + '</span><span class="nm">' + tp.title + '</span><span class="cnt">' + cnt + '</span>';
+        c.addEventListener('click', function () { openList(tp.id); });
+        wrap.appendChild(c);
+      });
+    }
+
+    // ---- Capture ----
+    var pendingAtt = [];
+
+    function autogrow(ta) { ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight, 130) + 'px'; }
+
+    function renderPending() {
+      var wrap = el('pending-att');
+      if (!pendingAtt.length) { wrap.innerHTML = ''; return; }
+      wrap.innerHTML = pendingAtt.map(function (a, i) {
+        var inner = (a.kind === 'image' && a.url)
+          ? '<img src="' + a.url + '" alt="">'
+          : '<span class="ic">' + attIcon(a.kind) + '</span>';
+        return '<span class="chip-att">' + inner + '<span class="nm">' + escapeHtml(a.name) + '</span><span class="x" data-i="' + i + '">✕</span></span>';
+      }).join('');
+      wrap.querySelectorAll('.x').forEach(function (x) {
+        x.addEventListener('click', function () {
+          pendingAtt.splice(parseInt(x.getAttribute('data-i'), 10), 1);
+          renderPending();
+        });
+      });
+    }
+
+    function handleFiles(fileList) {
+      var files = Array.prototype.slice.call(fileList || []);
+      files.forEach(function (f) {
+        var isImg = /^image\//.test(f.type);
+        if (isImg) {
+          var reader = new FileReader();
+          reader.onload = function (ev) {
+            pendingAtt.push({ name: f.name, kind: 'image', url: ev.target.result });
+            renderPending();
+          };
+          reader.readAsDataURL(f);
+        } else {
+          pendingAtt.push({ name: f.name, kind: 'file' });
+          renderPending();
+        }
+      });
+    }
+
+    function saveCapture() {
+      var ta = el('capture-input');
+      var text = ta.value.trim();
+      if (!text && !pendingAtt.length) { ta.focus(); return; }
+      DATA.entries.unshift({
+        id: ++nextId, text: text || '(без текста)', type: 'inbox', status: 'inbox',
+        nextStep: '', due: null, createdAt: new Date().toISOString(), source: 'text',
+        attachments: pendingAtt.slice()
+      });
+      ta.value = ''; autogrow(ta);
+      pendingAtt = []; renderPending();
+      render();
+      toast('Записано во «Входящие»');
+      if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.impactOccurred('light'); } catch (e) {} }
+    }
+
+    // ---- Triage ----
+    var triageQueue = [];
+    var triageIndex = 0;
+    var triagePick = null;
+    var triageStatus = 'today';
+
+    function openTriage() {
+      triageQueue = DATA.entries.filter(function (e) { return e.type === 'inbox'; });
+      if (!triageQueue.length) return;
+      triageIndex = 0;
+      showScreen('triage');
+      renderTriageStep();
+    }
+
+    function renderTriageStep() {
+      triagePick = null;
+      triageStatus = 'today';
+      var total = triageQueue.length;
+      var body = el('triage-body');
+
+      if (triageIndex >= total) {
+        el('triage-progress').textContent = '';
+        body.innerHTML =
+          '<div class="triage-done-all">' +
+          '<div class="em">🌿</div>' +
+          '<div class="m">Входящие разобраны.<br>Голова чище.</div>' +
+          '<button class="btn-accent" style="margin-top:22px;height:50px;" onclick="backToMain()">На главный</button>' +
+          '</div>';
+        return;
+      }
+
+      var entry = triageQueue[triageIndex];
+      el('triage-progress').textContent = (triageIndex + 1) + ' из ' + total;
+
+      var picks = DATA.types.map(function (tp) {
+        return '<button data-type="' + tp.id + '"><span class="ic">' + tp.icon + '</span>' + tp.title + '</button>';
+      }).join('');
+
+      body.innerHTML =
+        '<div class="card triage-card">' +
+          '<div class="src">' + (entry.source === 'voice' ? '🎙️ голосом' : '✍️ текстом') + ' · ' + fmtTime(entry.createdAt) + '</div>' +
+          '<div class="body"></div>' +
+          attRowHtml(entry.attachments) +
+        '</div>' +
+        '<div class="two-min">⏱️ <b>Правило 2 минут:</b> если разобраться займёт меньше 2 минут — сделай прямо сейчас и отметь «Сделано».</div>' +
+        '<div class="pick-label">Что это?</div>' +
+        '<div class="pick">' + picks + '</div>' +
+        '<button class="letgo" id="letgo-btn">🌬️ Отпустить — превратить в задачу с шагом</button>' +
+        '<div class="task-extra" id="task-extra">' +
+          '<span class="seg-label">Куда задачу?</span>' +
+          '<div class="seg" id="status-seg">' +
+            '<button data-status="today" class="sel">Сегодня</button>' +
+            '<button data-status="waiting">Ждёт</button>' +
+            '<button data-status="someday">Когда-нибудь</button>' +
+          '</div>' +
+          '<div class="fld"><label>Следующий шаг (обязательно для задачи)</label>' +
+          '<input id="next-step" placeholder="Например: позвонить в четверг в 15:00" /></div>' +
+          '<div class="fld"><label>Срок (необязательно)</label>' +
+          '<input id="due" type="date" /></div>' +
+          projectSelectHtml() +
+        '</div>' +
+        '<div class="triage-actions">' +
+          '<button class="btn-accent" id="triage-confirm" style="width:100%;height:50px;">Готово</button>' +
+        '</div>';
+
+      body.querySelector('.triage-card .body').textContent = entry.text;
+
+      var pickBtns = body.querySelectorAll('.pick button');
+      pickBtns.forEach(function (b) {
+        b.addEventListener('click', function () {
+          triagePick = b.getAttribute('data-type');
+          pickBtns.forEach(function (x) { x.classList.remove('sel'); });
+          b.classList.add('sel');
+          el('task-extra').classList.toggle('show', triagePick === 'task');
+        });
+      });
+
+      // «Отпустить» — превратить в задачу с обязательным следующим шагом
+      el('letgo-btn').addEventListener('click', function () {
+        var taskBtn = body.querySelector('.pick button[data-type="task"]');
+        if (taskBtn) taskBtn.click();
+        setTimeout(function () { var ns = el('next-step'); if (ns) ns.focus(); }, 60);
+      });
+
+      // Сегментированный статус задачи
+      body.querySelectorAll('#status-seg button').forEach(function (b) {
+        b.addEventListener('click', function () {
+          triageStatus = b.getAttribute('data-status');
+          body.querySelectorAll('#status-seg button').forEach(function (x) { x.classList.remove('sel'); });
+          b.classList.add('sel');
+        });
+      });
+
+      el('triage-confirm').addEventListener('click', confirmTriage);
+    }
+
+    function projectSelectHtml() {
+      var opts = '<option value="">— без проекта —</option>' +
+        DATA.projects.map(function (p) { return '<option value="' + p.id + '">' + escapeHtml(p.title) + '</option>'; }).join('');
+      return '<div class="fld"><label>Проект (необязательно)</label>' +
+        '<select id="proj-select" style="width:100%;border:none;outline:none;background:transparent;font:inherit;font-size:15px;color:var(--ink);padding:4px 0 12px;">' +
+        opts + '</select></div>';
+    }
+
+    function confirmTriage() {
+      if (!triagePick) { toast('Выбери тип записи'); return; }
+      var entry = triageQueue[triageIndex];
+      if (triagePick === 'task') {
+        var ns = el('next-step').value.trim();
+        if (!ns) { toast('Задаче нужен следующий шаг'); el('next-step').focus(); return; }
+        entry.type = 'task';
+        entry.nextStep = ns;
+        var due = el('due').value;
+        entry.due = due || null;
+        entry.status = triageStatus || 'today';
+        var ps = el('proj-select');
+        entry.projectId = (ps && ps.value) ? ps.value : null;
+      } else {
+        entry.type = triagePick;
+        entry.status = 'done';
+      }
+      triageIndex++;
+      render();
+      renderTriageStep();
+      if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.selectionChanged(); } catch (e) {} }
+    }
+
+    // ---- Filtered list (generic) ----
+    function renderEntryList(title, items) {
+      el('list-title').textContent = title;
+      var body = el('list-body');
+      if (!items.length) {
+        body.innerHTML = '<div class="card empty-mini">Здесь пока пусто.</div>';
+      } else {
+        body.innerHTML = items.map(function () {
+          return '<div class="card item"><div class="it-txt"></div><div class="it-meta"></div></div>';
+        }).join('');
+        var nodes = body.querySelectorAll('.item');
+        items.forEach(function (e, i) {
+          nodes[i].querySelector('.it-txt').textContent = e.text;
+          var meta = fmtTime(e.createdAt);
+          if (e.nextStep) meta += ' · Шаг: ' + e.nextStep;
+          if (e.due) meta += ' · Срок: ' + e.due;
+          nodes[i].querySelector('.it-meta').textContent = meta;
+          if (e.attachments && e.attachments.length) {
+            nodes[i].insertAdjacentHTML('beforeend', attRowHtml(e.attachments));
+          }
+        });
+      }
+      showScreen('list');
+    }
+
+    function openList(typeId) {
+      var tp = typeById(typeId);
+      renderEntryList(tp ? tp.icon + ' ' + tp.title : 'Записи',
+        DATA.entries.filter(function (e) { return e.type === typeId; }));
+    }
+
+    function openStatusList(status, title) {
+      renderEntryList(title,
+        DATA.entries.filter(function (e) { return e.type === 'task' && e.status === status; }));
+    }
+
+    function openProject(pid) {
+      var p = projectById(pid);
+      renderEntryList('📁 ' + (p ? p.title : 'Проект'),
+        DATA.entries.filter(function (e) { return e.projectId === pid; }));
+    }
+
+    // ---- Weekly review ----
+    function countStatus(s) { return DATA.entries.filter(function (e) { return e.type === 'task' && e.status === s; }).length; }
+
+    function daysAgo(iso) {
+      try { return Math.floor((Date.now() - new Date(iso).getTime()) / 86400000); } catch (e) { return 0; }
+    }
+
+    function openReview() {
+      var inbox = DATA.entries.filter(function (e) { return e.type === 'inbox'; });
+      var today = countStatus('today'), waiting = countStatus('waiting'), someday = countStatus('someday');
+      var doneTasks = DATA.entries.filter(function (e) { return e.type === 'task' && e.done; }).length;
+
+      // «Застряло»: задачи в ожидании + входящие старше 2 дней
+      var stuck = DATA.entries.filter(function (e) {
+        return (e.type === 'task' && e.status === 'waiting') || (e.type === 'inbox' && daysAgo(e.createdAt) >= 2);
+      });
+
+      var stuckHtml = stuck.length
+        ? stuck.map(function () { return '<div class="card stuck-item"><div class="si-txt"></div><div class="si-meta"></div></div>'; }).join('')
+        : '<div class="card empty-mini">Ничего не застряло — чисто 🌿</div>';
+
+      el('review-body').innerHTML =
+        '<div class="card review-hero"><div class="rh-line">' +
+          'Ждут разбора: ' + inbox.length + '. В работе: ' + today + '. ' +
+          'Сверься с застрявшим и обнови списки.' +
+        '</div></div>' +
+        '<div class="review-stats">' +
+          statTile(inbox.length, 'Не разобрано') +
+          statTile(today, 'Сегодня / в работе') +
+          statTile(waiting, 'Ждёт') +
+          statTile(someday, 'Когда-нибудь') +
+        '</div>' +
+        '<div class="review-block-title">Что застряло</div>' +
+        stuckHtml +
+        (doneTasks ? '<div class="review-block-title">Сделано</div><div class="card stat"><div class="sv">' + doneTasks + '</div><div class="sl">задач отмечено выполненными</div></div>' : '');
+
+      var nodes = el('review-body').querySelectorAll('.stuck-item');
+      stuck.forEach(function (e, i) {
+        nodes[i].querySelector('.si-txt').textContent = e.text;
+        nodes[i].querySelector('.si-meta').textContent = (e.type === 'inbox')
+          ? 'во входящих ' + daysAgo(e.createdAt) + ' дн. — пора разобрать'
+          : 'ждёт' + (e.nextStep ? ': ' + e.nextStep : '');
+      });
+
+      showScreen('review');
+    }
+
+    function statTile(v, label) {
+      return '<div class="card stat"><div class="sv">' + v + '</div><div class="sl">' + label + '</div></div>';
+    }
+
+    // ---- Export ----
+    function exportData() {
+      var lines = ['ОРГАНАЙЗЕР ХАОСА — выгрузка', new Date().toLocaleString('ru-RU'), ''];
+      DATA.types.concat([{ id: 'inbox', title: 'Входящие (не разобрано)', icon: '📥' }]).forEach(function (tp) {
+        var items = DATA.entries.filter(function (e) { return e.type === tp.id; });
+        if (!items.length) return;
+        lines.push('== ' + tp.title.toUpperCase() + ' ==');
+        items.forEach(function (e) {
+          var att = (e.attachments && e.attachments.length) ? '  [📎 ' + e.attachments.map(function (a) { return a.name; }).join(', ') + ']' : '';
+          lines.push('• ' + e.text + (e.nextStep ? '  →  ' + e.nextStep : '') + (e.due ? '  (срок: ' + e.due + ')' : '') + att);
+        });
+        lines.push('');
+      });
+      var text = lines.join('\n');
+
+      try {
+        var blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url; a.download = 'chaos-organizer.txt';
+        document.body.appendChild(a); a.click();
+        document.body.removeChild(a);
+        setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+        toast('Файл выгружен');
+      } catch (e) {
+        if (navigator.clipboard) {
+          navigator.clipboard.writeText(text).then(function () { toast('Скопировано в буфер'); });
+        } else {
+          toast('Не удалось выгрузить');
+        }
+      }
+    }
+
+    // Notion-friendly Markdown → буфер обмена
+    function exportNotion() {
+      var d = new Date();
+      var md = ['# Органайзер Хаоса — выгрузка (' + d.toLocaleDateString('ru-RU') + ')', ''];
+      var order = DATA.types.concat([{ id: 'inbox', title: 'Входящие (не разобрано)', icon: '📥' }]);
+      order.forEach(function (tp) {
+        var items = DATA.entries.filter(function (e) { return e.type === tp.id; });
+        if (!items.length) return;
+        md.push('## ' + tp.icon + ' ' + tp.title);
+        items.forEach(function (e) {
+          if (tp.id === 'task') {
+            md.push('- [ ] ' + e.text + (e.due ? ' 📅 ' + e.due : ''));
+            if (e.nextStep) md.push('    - Следующий шаг: ' + e.nextStep);
+          } else {
+            md.push('- ' + e.text);
+          }
+          if (e.attachments && e.attachments.length) {
+            md.push('    - 📎 ' + e.attachments.map(function (a) { return a.name; }).join(', '));
+          }
+        });
+        md.push('');
+      });
+      var text = md.join('\n');
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(
+          function () { toast('Скопировано — вставь в Notion (Ctrl+V)'); },
+          function () { notionFallback(text); }
+        );
+      } else {
+        notionFallback(text);
+      }
+    }
+
+    function notionFallback(text) {
+      try {
+        var ta = document.createElement('textarea');
+        ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+        document.body.appendChild(ta); ta.focus(); ta.select();
+        document.execCommand('copy'); document.body.removeChild(ta);
+        toast('Скопировано — вставь в Notion (Ctrl+V)');
+      } catch (e) { toast('Не удалось скопировать'); }
+    }
+
+    // ---- Navigation ----
+    function showScreen(name) {
+      ['main', 'triage', 'list', 'review'].forEach(function (s) {
+        el('screen-' + s).classList.toggle('active', s === name);
+      });
+      window.scrollTo(0, 0);
+      if (tg && tg.BackButton) {
+        try { name === 'main' ? tg.BackButton.hide() : tg.BackButton.show(); } catch (e) {}
+      }
+    }
+    function backToMain() { showScreen('main'); }
+
+    // ---- Wire up ----
+    document.addEventListener('DOMContentLoaded', function () {
+      el('save-btn').addEventListener('click', saveCapture);
+      var ta = el('capture-input');
+      ta.addEventListener('input', function () { autogrow(ta); });
+      ta.addEventListener('keydown', function (ev) {
+        if ((ev.metaKey || ev.ctrlKey) && ev.key === 'Enter') { ev.preventDefault(); saveCapture(); }
+      });
+      el('mic-btn').addEventListener('click', function () {
+        this.classList.toggle('rec');
+        toast(this.classList.contains('rec') ? 'Диктовка (демо) — печатай текст' : 'Диктовка выключена');
+      });
+      el('attach-btn').addEventListener('click', function () { el('file-input').click(); });
+      el('file-input').addEventListener('change', function () { handleFiles(this.files); this.value = ''; });
+      el('triage-btn').addEventListener('click', openTriage);
+      el('triage-back').addEventListener('click', backToMain);
+      el('list-back').addEventListener('click', backToMain);
+      el('review-btn').addEventListener('click', openReview);
+      el('review-back').addEventListener('click', backToMain);
+      el('tile-waiting').addEventListener('click', function () { openStatusList('waiting', '⏳ Ждёт'); });
+      el('tile-someday').addEventListener('click', function () { openStatusList('someday', '🌙 Когда-нибудь'); });
+      el('export-btn').addEventListener('click', exportData);
+      el('notion-btn').addEventListener('click', exportNotion);
+      boot();
+    });
+  </script>
+</body>
+</html>
