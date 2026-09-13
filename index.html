@@ -142,6 +142,8 @@
       background: var(--brass-wash); padding: 8px 12px; border-radius: 12px; line-height: 1.35;
     }
     .task-card .next b { font-weight: 700; white-space: nowrap; }
+    .task-del { margin-left: auto; border: none; background: transparent; color: var(--ink-soft); font-size: 18px; cursor: pointer; padding: 2px 4px; flex: 0 0 auto; align-self: flex-start; line-height: 1; }
+    .task-del:active { color: var(--burn); transform: scale(0.9); }
     .more-note { text-align: center; font-size: 13px; color: var(--ink-soft); padding: 6px; }
     .empty-mini { padding: 22px; color: var(--ink-soft); font-size: 14px; text-align: center; line-height: 1.5; }
 
@@ -662,13 +664,21 @@
           '<div class="txt">' +
             '<div class="title"></div>' +
             (t.nextStep ? '<div class="next"><b>Следующий шаг:</b><span></span></div>' : '') +
-          '</div>';
+          '</div>' +
+          '<button class="task-del" title="Удалить задачу">🗑️</button>';
         c.querySelector('.title').textContent = t.text;
         if (t.nextStep) c.querySelector('.next span').textContent = t.nextStep;
         c.querySelector('.check').addEventListener('click', function () {
           t.done = !t.done;
           renderWork();
           save();
+        });
+        c.querySelector('.task-del').addEventListener('click', function () {
+          var idx = DATA.entries.indexOf(t);
+          if (idx > -1) DATA.entries.splice(idx, 1);
+          render();
+          toast('Задача удалена');
+          if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.impactOccurred('medium'); } catch (e) {} }
         });
         wrap.appendChild(c);
       });
