@@ -432,14 +432,93 @@
 
     var el = function (id) { return document.getElementById(id); };
 
-    // ---- Persist (сохраняем на устройстве, чтобы записи не сбрасывались) ----
+    // ---- Persist: локально (устройство) + облако Telegram (синхронизация между устройствами) ----
+    var CLOUD_META = 'chaos_meta';
+    var CLOUD_CHUNK = 'chaos_';
+    var CHUNK_SIZE = 3500;      // лимит значения CloudStorage — 4096 символов, режем с запасом
+    var saveTimer = null;
+
+    function cloudOn() { return !!(tg && tg.CloudStorage && tg.CloudStorage.setItem); }
+
+    function serializeState() {
+      return JSON.stringify({ types: DATA.types, projects: DATA.projects, entries: DATA.entries, nextId: nextId });
+    }
+
+    function saveLocal() {
+      try { localStorage.setItem(STORE_KEY, serializeState()); } catch (e) {}
+    }
+
     function save() {
       if (!DATA) return;
-      try {
-        localStorage.setItem(STORE_KEY, JSON.stringify({
-          types: DATA.types, projects: DATA.projects, entries: DATA.entries, nextId: nextId
-        }));
-      } catch (e) {}
+      saveLocal();
+      scheduleCloudSave();
+    }
+
+    function scheduleCloudSave() {
+      if (!cloudOn()) return;
+      if (saveTimer) clearTimeout(saveTimer);
+      saveTimer = setTimeout(saveCloud, 800);
+    }
+
+    function saveCloud() {
+      if (!cloudOn()) return;
+      var str = serializeState();
+      var chunks = [];
+      for (var i = 0; i < str.length; i += CHUNK_SIZE) chunks.push(str.slice(i, i + CHUNK_SIZE));
+      var n = chunks.length;
+
+      function finalizeMeta() {
+        tg.CloudStorage.setItem(CLOUD_META, JSON.stringify({ chunks: n }), function () {
+          // подчищаем лишние старые куски, если состояние стало короче
+          try {
+            tg.CloudStorage.getKeys(function (e, keys) {
+              if (!keys) return;
+              var extra = keys.filter(function (k) {
+                return k.indexOf(CLOUD_CHUNK) === 0 && parseInt(k.slice(CLOUD_CHUNK.length), 10) >= n;
+              });
+              if (extra.length) tg.CloudStorage.removeItems(extra, function () {});
+            });
+          } catch (e) {}
+        });
+      }
+
+      if (n === 0) { finalizeMeta(); return; }
+      var done = 0, failed = false;
+      chunks.forEach(function (c, idx) {
+        tg.CloudStorage.setItem(CLOUD_CHUNK + idx, c, function (err) {
+          done++; if (err) failed = true;
+          if (done === n && !failed) finalizeMeta();
+        });
+      });
+    }
+
+    function loadFromCloud(cb) {
+      if (!(tg && tg.CloudStorage && tg.CloudStorage.getItem)) { cb(null); return; }
+      tg.CloudStorage.getItem(CLOUD_META, function (err, val) {
+        if (err || !val) { cb(null); return; }
+        var meta; try { meta = JSON.parse(val); } catch (e) { cb(null); return; }
+        var n = meta && meta.chunks ? meta.chunks : 0;
+        if (!n) { cb(null); return; }
+        var keys = [];
+        for (var i = 0; i < n; i++) keys.push(CLOUD_CHUNK + i);
+        tg.CloudStorage.getItems(keys, function (e, obj) {
+          if (e || !obj) { cb(null); return; }
+          var str = '';
+          for (var j = 0; j < n; j++) { var part = obj[CLOUD_CHUNK + j]; if (part == null) { cb(null); return; } str += part; }
+          var data; try { data = JSON.parse(str); } catch (ex) { cb(null); return; }
+          cb(data);
+        });
+      });
+    }
+
+    function applyData(d) {
+      DATA = d;
+      if (!DATA.entries) DATA.entries = [];
+      if (!DATA.types) DATA.types = [];
+      if (!DATA.projects) DATA.projects = [];
+      if (d.nextId) nextId = d.nextId;
+      saveLocal();
+      render();
     }
 
     function toast(msg) {
@@ -485,30 +564,19 @@
 
     // ---- Load data ----
     function boot() {
-      // 1) Сначала пробуем сохранённое на устройстве — это «живое» состояние приложения
-      var saved = null;
-      try { saved = JSON.parse(localStorage.getItem(STORE_KEY) || 'null'); } catch (e) {}
-      if (saved && saved.entries) {
-        DATA = saved;
-        if (!DATA.entries) DATA.entries = [];
-        if (!DATA.types) DATA.types = [];
-        if (!DATA.projects) DATA.projects = [];
-        if (saved.nextId) nextId = saved.nextId;
-        render();
-        return;
-      }
-      // 2) Первый запуск — берём стартовый набор из data.json и сохраняем его как рабочее состояние
-      fetch('data.json?v=' + Date.now(), { cache: 'no-store' })
-        .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-        .then(function (json) {
-          DATA = json;
-          if (!DATA.entries) DATA.entries = [];
-          if (!DATA.types) DATA.types = [];
-          if (!DATA.projects) DATA.projects = [];
-          save();
-          render();
-        })
-        .catch(function (err) { showFallback(err); });
+      // 1) Облако Telegram — источник правды, чтобы список был одинаков на всех устройствах
+      loadFromCloud(function (cloudData) {
+        if (cloudData && cloudData.entries) { applyData(cloudData); return; }
+        // 2) Нет облачных данных — берём локальные (этого устройства)
+        var saved = null;
+        try { saved = JSON.parse(localStorage.getItem(STORE_KEY) || 'null'); } catch (e) {}
+        if (saved && saved.entries) { applyData(saved); scheduleCloudSave(); return; }
+        // 3) Самый первый запуск — стартовый набор из data.json, дальше живём в облаке/локально
+        fetch('data.json?v=' + Date.now(), { cache: 'no-store' })
+          .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+          .then(function (json) { applyData(json); scheduleCloudSave(); })
+          .catch(function (err) { showFallback(err); });
+      });
     }
 
     function showFallback(err) {
