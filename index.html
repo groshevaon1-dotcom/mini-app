@@ -1380,7 +1380,6 @@
 
     // ---- Wire up ----
     document.addEventListener('DOMContentLoaded', function () {
-      if (!isOwner()) { showPrivate(); return; }
       el('save-btn').addEventListener('click', saveCapture);
       var ta = el('capture-input');
       ta.addEventListener('input', function () { autogrow(ta); });
