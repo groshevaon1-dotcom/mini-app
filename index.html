@@ -169,10 +169,20 @@
     .chip-att img { width: 24px; height: 24px; border-radius: 7px; object-fit: cover; flex: 0 0 auto; }
     .chip-att .ic { font-size: 15px; }
     .chip-att .x { cursor: pointer; color: var(--ink-soft); font-weight: 800; padding-left: 2px; }
-    a.chip-att { text-decoration: none; cursor: pointer; transition: border-color .12s ease, background .12s ease; }
-    a.chip-att:hover { border-color: var(--brass); background: var(--clay); }
-    a.chip-att:active { transform: scale(0.97); }
+    button.chip-att { font: inherit; cursor: pointer; transition: border-color .12s ease, background .12s ease, transform .1s ease; }
+    button.chip-att:active { transform: scale(0.97); }
     .chip-att .dl { color: var(--brass); font-weight: 700; padding-left: 2px; }
+    /* Просмотрщик вложений */
+    .att-card { max-width: 560px; }
+    .att-h { display: flex; align-items: center; gap: 8px; }
+    .att-h span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .att-view-img { width: 100%; max-height: 62vh; object-fit: contain; border-radius: 14px; margin-top: 14px; background: var(--surface-2); }
+    .att-view-frame { width: 100%; height: 62vh; border: 1px solid var(--line); border-radius: 14px; margin-top: 14px; background: #fff; }
+    .att-note { margin-top: 14px; font-size: 13.5px; color: var(--ink-soft); line-height: 1.5; }
+    /* Кликабельные элементы обзора */
+    .tappable { cursor: pointer; transition: transform .1s ease; }
+    .tappable:active { transform: scale(0.98); }
+    .stat-go { font-size: 11px; font-weight: 600; color: var(--brass); margin-top: 8px; }
 
     /* Inbox */
     .inbox { padding: 18px; display: flex; align-items: center; gap: 14px; }
@@ -765,20 +775,47 @@
 
     function attIcon(kind) { return kind === 'image' ? '🖼️' : (kind === 'voice' ? '🎙️' : '📄'); }
 
+    var ATT_STORE = {}, _attSeq = 0;
     function attRowHtml(atts) {
       if (!atts || !atts.length) return '';
       var chips = atts.map(function (a) {
+        var id = ++_attSeq; ATT_STORE[id] = a;
         var inner = (a.kind === 'image' && a.url)
           ? '<img src="' + a.url + '" alt="">'
           : '<span class="ic">' + attIcon(a.kind) + '</span>';
-        var label = inner + '<span class="nm">' + escapeHtml(a.name) + '</span>';
-        // С содержимым — открывается/скачивается по тапу; старые вложения без содержимого остаются просто подписью
-        if (a.url) {
-          return '<a class="chip-att" href="' + a.url + '" download="' + escapeHtml(a.name) + '" target="_blank" rel="noopener">' + label + '<span class="dl">↗</span></a>';
-        }
-        return '<span class="chip-att">' + label + '</span>';
+        // Открывается во встроенном просмотрщике по тапу (работает и в Telegram)
+        return '<button class="chip-att" data-att="' + id + '">' + inner +
+          '<span class="nm">' + escapeHtml(a.name) + '</span><span class="dl">' + (a.url ? '↗' : '') + '</span></button>';
       }).join('');
       return '<div class="att-row">' + chips + '</div>';
+    }
+
+    function openAttachment(a) {
+      if (!a) return;
+      var body;
+      if (!a.url) {
+        body = '<div class="att-note">Этот файл добавлен до обновления — его содержимое не сохранилось. Удали запись и вложи файл заново, чтобы открывать его прямо здесь.</div>';
+      } else if (a.kind === 'image') {
+        body = '<img class="att-view-img" src="' + a.url + '" alt="' + escapeHtml(a.name) + '">';
+      } else if (/pdf/i.test(a.mime || '') || /\.pdf$/i.test(a.name)) {
+        body = '<iframe class="att-view-frame" src="' + a.url + '"></iframe>' +
+          '<div class="att-note">Если PDF не отображается — открой запись в браузере по ссылке приложения.</div>';
+      } else {
+        body = '<div class="att-note">Предпросмотр этого типа файла в Telegram недоступен. Файл сохранён в записи; открой приложение по ссылке в браузере, чтобы скачать его.</div>';
+      }
+      var ov = document.getElementById('att-modal');
+      if (ov) ov.parentNode.removeChild(ov);
+      ov = document.createElement('div');
+      ov.className = 'pmodal'; ov.id = 'att-modal';
+      ov.innerHTML = '<div class="pmodal-card att-card">' +
+        '<div class="pmodal-h att-h">' + attIcon(a.kind) + ' <span></span></div>' +
+        body +
+        '<button class="btn-accent" id="att-close" style="width:100%;height:50px;margin-top:16px;">Закрыть</button>' +
+        '</div>';
+      document.body.appendChild(ov);
+      ov.querySelector('.att-h span').textContent = a.name;
+      ov.addEventListener('click', function (e) { if (e.target === ov) ov.parentNode.removeChild(ov); });
+      document.getElementById('att-close').addEventListener('click', function () { ov.parentNode.removeChild(ov); });
     }
 
     function escapeHtml(s) {
@@ -1554,7 +1591,7 @@
       var maxType = Math.max(1, Math.max.apply(null, byType.map(function (x) { return x.n; })));
 
       var barsHtml = byType.map(function (x) {
-        return '<div class="bar-row">' +
+        return '<div class="bar-row tappable" data-type="' + x.tp.id + '">' +
           '<div class="bar-lbl">' + x.tp.icon + ' ' + escapeHtml(x.tp.title) + '</div>' +
           '<div class="bar-track"><div class="bar-fill" style="width:' + Math.round(x.n / maxType * 100) + '%"></div></div>' +
           '<div class="bar-n">' + x.n + '</div>' +
@@ -1567,10 +1604,10 @@
           '<div class="rh-sub">мыслей разгружено из головы' + (weekCaptured ? ' · ' + weekCaptured + ' за последнюю неделю' : '') + '</div>' +
         '</div>' +
         '<div class="review-stats">' +
-          statTile(inbox.length, 'Не разобрано') +
-          statTile(today, 'Сегодня / в работе') +
-          statTile(waiting, 'Ждёт') +
-          statTile(doneTasks, 'Сделано') +
+          statTile(inbox.length, 'Не разобрано', 'inbox') +
+          statTile(today, 'Сегодня / в работе', 'today') +
+          statTile(waiting, 'Ждёт', 'waiting') +
+          statTile(doneTasks, 'Сделано', 'done') +
         '</div>' +
         '<button class="btn-accent" id="share-week" style="width:100%;height:50px;margin:14px 0 4px;">📤 Поделиться итогом недели</button>' +
         '<div class="review-block-title">По типам</div>' +
@@ -1584,11 +1621,28 @@
         nodes[i].querySelector('.si-meta').textContent = (e.type === 'inbox')
           ? 'во входящих ' + daysAgo(e.createdAt) + ' дн. — пора разобрать'
           : 'ждёт' + (e.nextStep ? ': ' + e.nextStep : '');
+        nodes[i].classList.add('tappable');
+        nodes[i].addEventListener('click', function () { openReviewList(e.type === 'inbox' ? 'inbox' : 'waiting'); });
+      });
+
+      // Клик по плиткам и типам — открыть записи за цифрой
+      el('review-body').querySelectorAll('.stat[data-open]').forEach(function (t) {
+        t.addEventListener('click', function () { openReviewList(t.getAttribute('data-open')); });
+      });
+      el('review-body').querySelectorAll('.bar-row[data-type]').forEach(function (b) {
+        b.addEventListener('click', function () { openList(b.getAttribute('data-type')); });
       });
 
       var sw = el('share-week'); if (sw) sw.addEventListener('click', shareWeek);
 
       showScreen('review');
+    }
+
+    function openReviewList(key) {
+      if (key === 'inbox') renderEntryList('📥 Не разобрано', DATA.entries.filter(function (e) { return e.type === 'inbox'; }));
+      else if (key === 'today') renderEntryList('🎯 Сегодня / в работе', DATA.entries.filter(function (e) { return e.type === 'task' && e.status === 'today'; }));
+      else if (key === 'waiting') openStatusList('waiting', '⏳ Ждёт');
+      else if (key === 'done') renderEntryList('✅ Сделано', DATA.entries.filter(function (e) { return e.type === 'task' && e.done; }));
     }
 
     // ---- Виральный «Итог недели»: карточка + шаринг в Telegram ----
@@ -1683,8 +1737,8 @@
       });
     }
 
-    function statTile(v, label) {
-      return '<div class="card stat"><div class="sv">' + v + '</div><div class="sl">' + label + '</div></div>';
+    function statTile(v, label, key) {
+      return '<div class="card stat tappable" data-open="' + (key || '') + '"><div class="sv">' + v + '</div><div class="sl">' + label + '</div><div class="stat-go">смотреть →</div></div>';
     }
 
     // ---- Export ----
@@ -1905,6 +1959,12 @@
 
       // Случайная подсказка захвата при открытии
       var ch = el('capture-hint'); if (ch) ch.textContent = pick(CAPTURE_HINTS);
+
+      // Открытие вложения по тапу (встроенный просмотрщик) — работает везде, включая Telegram
+      document.addEventListener('click', function (e) {
+        var chip = e.target && e.target.closest ? e.target.closest('.chip-att[data-att]') : null;
+        if (chip) { openAttachment(ATT_STORE[chip.getAttribute('data-att')]); }
+      });
 
       // Окно приватности: по чипу в шапке и по строке внизу
       el('owner-chip').addEventListener('click', openPrivacy);
