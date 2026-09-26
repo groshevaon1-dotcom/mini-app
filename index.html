@@ -107,6 +107,12 @@
       color: var(--spruce); text-align: center; margin: 0 10px 16px; padding: 0 6px; text-wrap: balance;
     }
     .daily-phrase:empty { display: none; }
+    .streak-chip {
+      display: block; text-align: center; margin: -8px auto 18px; font-size: 13px; font-weight: 600;
+      color: var(--burn); background: var(--clay); border: 1px solid var(--line); border-radius: 999px;
+      padding: 6px 14px; width: fit-content; max-width: calc(100% - 20px);
+    }
+    .streak-chip[hidden] { display: none; }
 
     /* Окно приватности */
     .pmodal { position: fixed; inset: 0; z-index: 80; display: flex; align-items: flex-end; justify-content: center; background: rgba(20,26,18,.55); padding: 0; animation: pmfade .2s ease; }
@@ -124,6 +130,9 @@
     .pmodal-pt small { display: block; font-size: 13px; color: var(--ink-soft); line-height: 1.4; margin-top: 2px; }
     .pmodal-card .btn-accent { width: 100%; height: 50px; font-size: 15px; border-radius: 16px; }
     .share-img { width: 100%; border-radius: 16px; margin-top: 14px; display: block; box-shadow: var(--shadow-soft); }
+    .pmodal-card .fld { background: var(--surface-2); border: 1px solid var(--line); border-radius: 12px; padding: 4px 14px; margin-bottom: 10px; }
+    .pmodal-card .fld label { display: block; font-size: 12px; color: var(--ink-soft); margin: 8px 0 2px; font-weight: 600; }
+    .pmodal-card .fld input { width: 100%; border: none; outline: none; background: transparent; font: inherit; font-size: 15px; color: var(--ink); padding: 4px 0 10px; }
     .onb-privacy { font-size: 12px; color: var(--ink-soft); line-height: 1.45; margin: 2px 0 16px; }
     .review-pill:active { background: var(--surface-2); }
 
@@ -438,6 +447,7 @@
       </div>
 
       <div class="daily-phrase" id="daily-phrase"></div>
+      <div class="streak-chip" id="streak" hidden></div>
 
       <!-- 1. Capture -->
       <div class="card capture">
@@ -492,6 +502,7 @@
       <!-- 3c. Projects -->
       <div class="section-title">Проекты</div>
       <div class="work" id="project-list"></div>
+      <button class="export-btn" id="add-project" style="margin-top:9px;">＋ Новый проект</button>
 
       <!-- 4. Type filters -->
       <div class="section-title">По типам</div>
@@ -958,9 +969,30 @@
     ];
     function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 
+    // ---- Стрик: дни подряд с активностью (захват или разбор) ----
+    function dayStr(d) { d = d || new Date(); return d.getFullYear() + '-' + _pad2(d.getMonth() + 1) + '-' + _pad2(d.getDate()); }
+    function pluralRu(n, one, few, many) { var a = n % 10, b = n % 100; if (a === 1 && b !== 11) return one; if (a >= 2 && a <= 4 && (b < 10 || b >= 20)) return few; return many; }
+    function bumpStreak() {
+      if (!DATA) return;
+      var today = dayStr();
+      if (DATA.lastActiveDay === today) return;
+      var y = new Date(); y.setDate(y.getDate() - 1);
+      DATA.streak = (DATA.lastActiveDay === dayStr(y)) ? ((DATA.streak || 0) + 1) : 1;
+      DATA.lastActiveDay = today;
+    }
+    function renderStreak() {
+      var elx = el('streak'); if (!elx) return;
+      var s = DATA.streak || 0;
+      var y = new Date(); y.setDate(y.getDate() - 1);
+      var fresh = (DATA.lastActiveDay === dayStr() || DATA.lastActiveDay === dayStr(y));
+      if (s >= 1 && fresh) { elx.textContent = '🔥 ' + s + ' ' + pluralRu(s, 'день', 'дня', 'дней') + ' подряд разгружаешь голову'; elx.hidden = false; }
+      else { elx.hidden = true; }
+    }
+
     // ---- Render main ----
     function render() {
       setDailyPhrase();
+      renderStreak();
       var d = new Date();
       el('today-label').textContent = d.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' });
 
@@ -1198,6 +1230,7 @@
       });
       ta.value = ''; autogrow(ta);
       pendingAtt = []; renderPending();
+      bumpStreak();
       render();
       toast('Записано во «Входящие»');
       if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.impactOccurred('light'); } catch (e) {} }
@@ -1515,6 +1548,7 @@
         entry.status = 'done';
       }
       triageIndex++;
+      bumpStreak();
       render();
       renderTriageStep();
       if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.selectionChanged(); } catch (e) {} }
@@ -1643,6 +1677,32 @@
       else if (key === 'today') renderEntryList('🎯 Сегодня / в работе', DATA.entries.filter(function (e) { return e.type === 'task' && e.status === 'today'; }));
       else if (key === 'waiting') openStatusList('waiting', '⏳ Ждёт');
       else if (key === 'done') renderEntryList('✅ Сделано', DATA.entries.filter(function (e) { return e.type === 'task' && e.done; }));
+    }
+
+    function openProjectCreate() {
+      var ov = document.getElementById('proj-modal'); if (ov) ov.parentNode.removeChild(ov);
+      ov = document.createElement('div'); ov.className = 'pmodal'; ov.id = 'proj-modal';
+      ov.innerHTML = '<div class="pmodal-card">' +
+        '<div class="pmodal-h">📁 Новый проект</div>' +
+        '<div class="pmodal-sub">Проект — то, что требует больше одного шага.</div>' +
+        '<div class="fld"><label>Название</label><input id="np-title" placeholder="Например: Запуск канала"></div>' +
+        '<div class="fld"><label>Как выглядит «готово» (необязательно)</label><input id="np-outcome" placeholder="Например: 5 постов опубликованы"></div>' +
+        '<button class="btn-accent" id="np-save" style="width:100%;height:48px;margin-top:14px;">Создать</button>' +
+        '<button class="export-btn" id="np-cancel" style="width:100%;margin-top:10px;">Отмена</button>' +
+        '</div>';
+      document.body.appendChild(ov);
+      ov.addEventListener('click', function (e) { if (e.target === ov) ov.parentNode.removeChild(ov); });
+      document.getElementById('np-cancel').addEventListener('click', function () { ov.parentNode.removeChild(ov); });
+      setTimeout(function () { var t = document.getElementById('np-title'); if (t) t.focus(); }, 60);
+      document.getElementById('np-save').addEventListener('click', function () {
+        var title = document.getElementById('np-title').value.trim();
+        if (!title) { toast('Впиши название проекта'); document.getElementById('np-title').focus(); return; }
+        DATA.projects.push({ id: 'p' + Date.now(), title: title, outcome: document.getElementById('np-outcome').value.trim(), createdAt: new Date().toISOString() });
+        save(); render();
+        ov.parentNode.removeChild(ov);
+        toast('Проект создан');
+        if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.impactOccurred('light'); } catch (e) {} }
+      });
     }
 
     // ---- Виральный «Итог недели»: карточка + шаринг в Telegram ----
@@ -1952,6 +2012,7 @@
       el('matrix-back').addEventListener('click', backToMain);
       el('tile-waiting').addEventListener('click', function () { openStatusList('waiting', '⏳ Ждёт'); });
       el('tile-someday').addEventListener('click', function () { openStatusList('someday', '🌙 Когда-нибудь'); });
+      var ap = el('add-project'); if (ap) ap.addEventListener('click', openProjectCreate);
       el('export-btn').addEventListener('click', exportData);
       el('notion-btn').addEventListener('click', exportNotion);
       el('clear-btn').addEventListener('click', confirmClearAll);
