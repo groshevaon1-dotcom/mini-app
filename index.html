@@ -118,6 +118,7 @@
     .pmodal-pt b { display: block; font-size: 14px; color: var(--ink); font-weight: 600; }
     .pmodal-pt small { display: block; font-size: 13px; color: var(--ink-soft); line-height: 1.4; margin-top: 2px; }
     .pmodal-card .btn-accent { width: 100%; height: 50px; font-size: 15px; border-radius: 16px; }
+    .share-img { width: 100%; border-radius: 16px; margin-top: 14px; display: block; box-shadow: var(--shadow-soft); }
     .onb-privacy { font-size: 12px; color: var(--ink-soft); line-height: 1.45; margin: 2px 0 16px; }
     .review-pill:active { background: var(--surface-2); }
 
@@ -163,6 +164,10 @@
     .chip-att img { width: 24px; height: 24px; border-radius: 7px; object-fit: cover; flex: 0 0 auto; }
     .chip-att .ic { font-size: 15px; }
     .chip-att .x { cursor: pointer; color: var(--ink-soft); font-weight: 800; padding-left: 2px; }
+    a.chip-att { text-decoration: none; cursor: pointer; transition: border-color .12s ease, background .12s ease; }
+    a.chip-att:hover { border-color: var(--brass); background: var(--clay); }
+    a.chip-att:active { transform: scale(0.97); }
+    .chip-att .dl { color: var(--brass); font-weight: 700; padding-left: 2px; }
 
     /* Inbox */
     .inbox { padding: 18px; display: flex; align-items: center; gap: 14px; }
@@ -756,10 +761,15 @@
     function attRowHtml(atts) {
       if (!atts || !atts.length) return '';
       var chips = atts.map(function (a) {
-        if (a.kind === 'image' && a.url) {
-          return '<span class="chip-att"><img src="' + a.url + '" alt=""><span class="nm">' + escapeHtml(a.name) + '</span></span>';
+        var inner = (a.kind === 'image' && a.url)
+          ? '<img src="' + a.url + '" alt="">'
+          : '<span class="ic">' + attIcon(a.kind) + '</span>';
+        var label = inner + '<span class="nm">' + escapeHtml(a.name) + '</span>';
+        // С содержимым — открывается/скачивается по тапу; старые вложения без содержимого остаются просто подписью
+        if (a.url) {
+          return '<a class="chip-att" href="' + a.url + '" download="' + escapeHtml(a.name) + '" target="_blank" rel="noopener">' + label + '<span class="dl">↗</span></a>';
         }
-        return '<span class="chip-att"><span class="ic">' + attIcon(a.kind) + '</span><span class="nm">' + escapeHtml(a.name) + '</span></span>';
+        return '<span class="chip-att">' + label + '</span>';
       }).join('');
       return '<div class="att-row">' + chips + '</div>';
     }
@@ -1058,17 +1068,13 @@
       var files = Array.prototype.slice.call(fileList || []);
       files.forEach(function (f) {
         var isImg = /^image\//.test(f.type);
-        if (isImg) {
-          var reader = new FileReader();
-          reader.onload = function (ev) {
-            pendingAtt.push({ name: f.name, kind: 'image', url: ev.target.result });
-            renderPending();
-          };
-          reader.readAsDataURL(f);
-        } else {
-          pendingAtt.push({ name: f.name, kind: 'file' });
+        var reader = new FileReader();
+        reader.onload = function (ev) {
+          // Храним содержимое любого файла (не только картинки), чтобы его можно было открыть/скачать
+          pendingAtt.push({ name: f.name, kind: isImg ? 'image' : 'file', url: ev.target.result, mime: f.type || '' });
           renderPending();
-        }
+        };
+        reader.readAsDataURL(f);
       });
     }
 
@@ -1494,6 +1500,7 @@
           statTile(waiting, 'Ждёт') +
           statTile(doneTasks, 'Сделано') +
         '</div>' +
+        '<button class="btn-accent" id="share-week" style="width:100%;height:50px;margin:14px 0 4px;">📤 Поделиться итогом недели</button>' +
         '<div class="review-block-title">По типам</div>' +
         '<div class="card review-bars">' + barsHtml + '</div>' +
         '<div class="review-block-title">Что застряло</div>' +
@@ -1507,7 +1514,101 @@
           : 'ждёт' + (e.nextStep ? ': ' + e.nextStep : '');
       });
 
+      var sw = el('share-week'); if (sw) sw.addEventListener('click', shareWeek);
+
       showScreen('review');
+    }
+
+    // ---- Виральный «Итог недели»: карточка + шаринг в Telegram ----
+    function weekStats() {
+      return {
+        week: DATA.entries.filter(function (e) { return daysAgo(e.createdAt) <= 7; }).length,
+        today: countStatus('today'),
+        done: DATA.entries.filter(function (e) { return e.type === 'task' && e.done; }).length,
+        total: DATA.entries.length
+      };
+    }
+
+    function buildWeekCard(s) {
+      var W = 640, H = 800, c = document.createElement('canvas');
+      c.width = W; c.height = H;
+      var x = c.getContext('2d');
+      // фон
+      var g = x.createLinearGradient(0, 0, 0, H);
+      g.addColorStop(0, '#17321F'); g.addColorStop(1, '#0F2416');
+      x.fillStyle = g; x.fillRect(0, 0, W, H);
+      // рамка-акцент
+      x.strokeStyle = 'rgba(219,138,78,.5)'; x.lineWidth = 2; x.strokeRect(24, 24, W - 48, H - 48);
+      x.textAlign = 'center';
+      // заголовок
+      x.fillStyle = '#AECBA6'; x.font = '600 26px "IBM Plex Sans", sans-serif';
+      x.fillText('ОРГАНАЙЗЕР ХАОСА', W / 2, 92);
+      x.fillStyle = '#F4F3EE'; x.font = '700 52px "Literata", Georgia, serif';
+      x.fillText('Итог недели', W / 2, 158);
+      // большое число
+      x.fillStyle = '#DB8A4E'; x.font = '700 170px "Literata", Georgia, serif';
+      x.fillText(String(s.week), W / 2, 360);
+      x.fillStyle = '#C9D3C2'; x.font = '400 24px "IBM Plex Sans", sans-serif';
+      x.fillText('мыслей поймано и разгружено', W / 2, 408);
+      // три метрики
+      var cols = [['В работе', s.today], ['Сделано', s.done], ['Всего', s.total]];
+      var cx = [W / 2 - 180, W / 2, W / 2 + 180], cy = 540;
+      cols.forEach(function (col, i) {
+        x.fillStyle = '#F4F3EE'; x.font = '700 60px "Literata", Georgia, serif';
+        x.fillText(String(col[1]), cx[i], cy);
+        x.fillStyle = '#8FA487'; x.font = '500 20px "IBM Plex Sans", sans-serif';
+        x.fillText(col[0], cx[i], cy + 34);
+      });
+      // девиз
+      x.fillStyle = '#AECBA6'; x.font = 'italic 400 26px "Literata", Georgia, serif';
+      x.fillText('«Поймал мысль — освободил голову»', W / 2, 656);
+      // футер
+      x.fillStyle = '#DB8A4E'; x.font = '600 22px "IBM Plex Mono", monospace';
+      x.fillText('@Drop_chaos_bot', W / 2, 726);
+      return c.toDataURL('image/png');
+    }
+
+    function shareWeek() {
+      var s = weekStats();
+      var draw = function () {
+        var img = buildWeekCard(s);
+        openShareModal(img, s);
+      };
+      if (document.fonts && document.fonts.ready) { document.fonts.ready.then(draw, draw); }
+      else { draw(); }
+    }
+
+    function openShareModal(imgUrl, s) {
+      var ov = document.getElementById('share-modal');
+      if (ov) ov.parentNode.removeChild(ov);
+      ov = document.createElement('div');
+      ov.className = 'pmodal'; ov.id = 'share-modal';
+      ov.innerHTML =
+        '<div class="pmodal-card">' +
+          '<div class="pmodal-h">📤 Итог недели</div>' +
+          '<div class="pmodal-sub">Поделись карточкой — друзья увидят твой ритм и попробуют приложение.</div>' +
+          '<img class="share-img" alt="Итог недели" src="' + imgUrl + '">' +
+          '<button class="btn-accent" id="share-tg" style="width:100%;height:50px;margin-top:16px;">Поделиться в Telegram</button>' +
+          '<button class="export-btn" id="share-save" style="width:100%;margin-top:10px;">💾 Сохранить картинку</button>' +
+          '<button class="export-btn" id="share-close" style="width:100%;margin-top:10px;">Закрыть</button>' +
+        '</div>';
+      document.body.appendChild(ov);
+      ov.addEventListener('click', function (e) { if (e.target === ov) ov.parentNode.removeChild(ov); });
+      document.getElementById('share-close').addEventListener('click', function () { ov.parentNode.removeChild(ov); });
+      document.getElementById('share-tg').addEventListener('click', function () {
+        var link = 'https://groshevaon1-dotcom.github.io/mini-app/';
+        var text = 'Итог недели в «Органайзере Хаоса»: поймал ' + s.week + ' мыслей, в работе ' + s.today + ', сделано ' + s.done + '. Разгружаю голову 🌿';
+        var shareUrl = 'https://t.me/share/url?url=' + encodeURIComponent(link) + '&text=' + encodeURIComponent(text);
+        try { if (tg && tg.openTelegramLink) { tg.openTelegramLink(shareUrl); return; } } catch (e) {}
+        window.open(shareUrl, '_blank');
+      });
+      document.getElementById('share-save').addEventListener('click', function () {
+        try {
+          var a = document.createElement('a'); a.href = imgUrl; a.download = 'chaos-week.png';
+          document.body.appendChild(a); a.click(); a.remove();
+          toast('Картинка сохранена');
+        } catch (e) { toast('В Telegram сделай скриншот карточки'); }
+      });
     }
 
     function statTile(v, label) {
