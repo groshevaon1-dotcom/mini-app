@@ -828,15 +828,10 @@
     function openAttachment(a) {
       if (!a) return;
       var body;
-      if (!a.url) {
-        body = '<div class="att-note">Этот файл добавлен до обновления — его содержимое не сохранилось. Удали запись и вложи файл заново, чтобы открывать его прямо здесь.</div>';
-      } else if (a.kind === 'image') {
+      if (a.kind === 'image' && a.url) {
         body = '<img class="att-view-img" src="' + a.url + '" alt="' + escapeHtml(a.name) + '">';
-      } else if (/pdf/i.test(a.mime || '') || /\.pdf$/i.test(a.name)) {
-        body = '<iframe class="att-view-frame" src="' + a.url + '"></iframe>' +
-          '<div class="att-note">Если PDF не отображается — открой запись в браузере по ссылке приложения.</div>';
       } else {
-        body = '<div class="att-note">Предпросмотр этого типа файла в Telegram недоступен. Файл сохранён в записи; открой приложение по ссылке в браузере, чтобы скачать его.</div>';
+        body = '<div class="att-note">Документ прикреплён как метка — по нему видно, что к записи относится файл. Предпросмотр и хранение самих файлов в Telegram недоступны (для этого нужен серверный этап). Картинки открываются и хранятся полностью.</div>';
       }
       var ov = document.getElementById('att-modal');
       if (ov) ov.parentNode.removeChild(ov);
@@ -1232,15 +1227,32 @@
     function handleFiles(fileList) {
       var files = Array.prototype.slice.call(fileList || []);
       files.forEach(function (f) {
-        var isImg = /^image\//.test(f.type);
-        var reader = new FileReader();
-        reader.onload = function (ev) {
-          // Храним содержимое любого файла (не только картинки), чтобы его можно было открыть/скачать
-          pendingAtt.push({ name: f.name, kind: isImg ? 'image' : 'file', url: ev.target.result, mime: f.type || '' });
+        if (/^image\//.test(f.type)) {
+          // Картинки сжимаем — иначе большой dataURL не помещается в хранилище Telegram и не грузится
+          downscaleImage(f, function (url) { pendingAtt.push({ name: f.name, kind: 'image', url: url, mime: 'image/jpeg' }); renderPending(); });
+        } else {
+          // Документы: предпросмотр/хранение файлов в Telegram недоступны — прикрепляем как метку
+          pendingAtt.push({ name: f.name, kind: 'file' });
           renderPending();
-        };
-        reader.readAsDataURL(f);
+          toast('Файл прикреплён как метка (превью файлов недоступно)');
+        }
       });
+    }
+
+    function downscaleImage(file, cb) {
+      var reader = new FileReader();
+      reader.onload = function (ev) {
+        var img = new Image();
+        img.onload = function () {
+          var max = 1100, w = img.width, h = img.height;
+          if (w > max || h > max) { if (w > h) { h = Math.round(h * max / w); w = max; } else { w = Math.round(w * max / h); h = max; } }
+          try { var c = document.createElement('canvas'); c.width = w; c.height = h; c.getContext('2d').drawImage(img, 0, 0, w, h); cb(c.toDataURL('image/jpeg', 0.72)); }
+          catch (e) { cb(ev.target.result); }
+        };
+        img.onerror = function () { cb(ev.target.result); };
+        img.src = ev.target.result;
+      };
+      reader.readAsDataURL(file);
     }
 
     function saveCapture() {
@@ -1548,7 +1560,7 @@
         if (!down) return;
         var ddx = e.clientX - x0, ddy = e.clientY - y0;
         if (!active) {
-          if (Math.abs(ddx) > 12 && Math.abs(ddx) > Math.abs(ddy)) { active = true; card.style.transition = 'none'; try { card.setPointerCapture(e.pointerId); } catch (_) {} }
+          if (Math.abs(ddx) > 12 && Math.abs(ddx) > Math.abs(ddy)) { active = true; card.style.transition = 'none'; }
           else return;
         }
         dx = ddx;
