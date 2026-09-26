@@ -137,7 +137,11 @@
     .pmodal-card .fld label { display: block; font-size: 12px; color: var(--ink-soft); margin: 8px 0 2px; font-weight: 600; }
     .pmodal-card .fld input, .pmodal-card .fld select { width: 100%; border: none; outline: none; background: transparent; font: inherit; font-size: 15px; color: var(--ink); padding: 4px 0 10px; }
     .pmodal-card { max-height: 88vh; overflow-y: auto; }
+    .onb-why { font-size: 12px; color: var(--ink-soft); line-height: 1.5; margin: 2px 0 12px; padding: 11px 13px; background: var(--surface-2); border: 1px solid var(--line); border-radius: 12px; text-align: left; }
+    .onb-why b { color: var(--forest); font-weight: 700; }
     .onb-privacy { font-size: 12px; color: var(--ink-soft); line-height: 1.45; margin: 2px 0 16px; }
+    .method-link { display: inline-block; margin-top: 10px; font-family: inherit; font-size: 12px; font-weight: 600; color: var(--spruce); background: none; border: none; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; padding: 4px; }
+    .method-link:active { opacity: .7; }
     .review-pill:active { background: var(--surface-2); }
 
     .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow-hairline); }
@@ -543,7 +547,7 @@
         <button class="export-btn danger" id="clear-btn">🧹 Очистить всё — начать с чистого листа</button>
       </div>
 
-      <p class="privacy-note">🔒 Приватно и автономно: записи хранятся только у тебя — в твоём Telegram и на этом устройстве. На сервер ничего не отправляется, доступа ни у кого другого нет.</p>
+      <p class="privacy-note">🔒 Приватно и автономно: записи хранятся только у тебя — в твоём Telegram и на этом устройстве. На сервер ничего не отправляется, доступа ни у кого другого нет.<br><button class="method-link" id="method-open">🧠 Как это работает: GTD и эффект Зейгарник</button></p>
     </div>
 
     <!-- TRIAGE SCREEN -->
@@ -609,6 +613,20 @@
         <div class="pmodal-pt"><span class="e">🎛️</span><div><b>Под твоим контролем</b><small>В любой момент можно выгрузить (.txt или в Notion) или очистить всё одной кнопкой.</small></div></div>
       </div>
       <button class="btn-accent" id="privacy-close">Понятно</button>
+    </div>
+  </div>
+
+  <!-- Окно «Как это работает» -->
+  <div class="pmodal" id="method-modal" hidden>
+    <div class="pmodal-card">
+      <div class="pmodal-h">🧠 Как это работает</div>
+      <div class="pmodal-sub">Приложение стоит на двух проверенных идеях.</div>
+      <div class="pmodal-pts">
+        <div class="pmodal-pt"><span class="e">✅</span><div><b>GTD — Getting Things Done</b><small>Метод Дэвида Аллена: выгрузи всё из головы во «Входящие», по каждому реши — что это и какой следующий шаг, храни в понятной системе. Голова освобождается для дела, а не для запоминания.</small></div></div>
+        <div class="pmodal-pt"><span class="e">🔄</span><div><b>Эффект Зейгарник</b><small>Открытие психолога Блюмы Зейгарник: незавершённые дела навязчиво крутятся в памяти и держат в напряжении. Стоит назначить мысли конкретный следующий шаг — мозг перестаёт её «караулить» и отпускает.</small></div></div>
+        <div class="pmodal-pt"><span class="e">🎯</span><div><b>Матрица Эйзенхауэра</b><small>Задачи раскладываются по срочности и важности: сделать сейчас, запланировать, делегировать или отпустить. Видно, за что браться.</small></div></div>
+      </div>
+      <button class="btn-accent" id="method-close">Понятно</button>
     </div>
   </div>
 
@@ -941,6 +959,7 @@
             '<div class="onb-pt"><span class="e">🗂️</span><div><b>Разбирай спокойно</b><small>Присвой тип и следующий шаг по правилу 2 минут</small></div></div>' +
             '<div class="onb-pt"><span class="e">🎯</span><div><b>Держи фокус</b><small>Матрица Эйзенхауэра — что делать сейчас</small></div></div>' +
           '</div>' +
+          '<p class="onb-why">В основе — две идеи: <b>GTD</b> (Getting Things Done — выгрузи мысли из головы и дай каждой следующий шаг) и <b>эффект Зейгарник</b> (незакрытое крутится в голове, пока у него нет хода).</p>' +
           '<p class="onb-privacy">🔒 Приватно и автономно: данные хранятся только у тебя — в Telegram и на этом устройстве. На сервер ничего не уходит.</p>' +
           '<button class="btn-accent" id="onb-clean">Начать с чистого листа</button>' +
           (seed && seed.entries && seed.entries.length ? '<button class="onb-demo" id="onb-demo">Посмотреть на примере</button>' : '') +
@@ -2273,6 +2292,8 @@
 
     function openPrivacy() { var m = el('privacy-modal'); if (m) m.hidden = false; }
     function closePrivacy() { var m = el('privacy-modal'); if (m) m.hidden = true; }
+    function openMethod() { var m = el('method-modal'); if (m) m.hidden = false; }
+    function closeMethod() { var m = el('method-modal'); if (m) m.hidden = true; }
 
     // ---- Wire up ----
     document.addEventListener('DOMContentLoaded', function () {
@@ -2324,6 +2345,12 @@
       el('privacy-modal').addEventListener('click', function (e) { if (e.target === el('privacy-modal')) closePrivacy(); });
       var pn = document.querySelector('.privacy-note');
       if (pn) { pn.style.cursor = 'pointer'; pn.addEventListener('click', openPrivacy); }
+
+      // Окно «Как это работает» (GTD и эффект Зейгарник)
+      var mo = el('method-open');
+      if (mo) mo.addEventListener('click', function (e) { e.stopPropagation(); openMethod(); });
+      el('method-close').addEventListener('click', closeMethod);
+      el('method-modal').addEventListener('click', function (e) { if (e.target === el('method-modal')) closeMethod(); });
 
       // Автосохранение при сворачивании/закрытии: localStorage синхронно + попытка в облако
       var flush = function () { try { if (DATA) { saveLocal(); saveCloud(); } } catch (e) {} };
