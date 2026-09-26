@@ -211,6 +211,15 @@
     /* Review screen */
     .review-hero { padding: 22px 20px; box-shadow: var(--shadow-soft); }
     .review-hero .rh-line { font-family: var(--font-display); font-size: 19px; color: var(--forest); line-height: 1.4; }
+    .review-hero .rh-big { font-family: var(--font-display); font-size: 46px; font-weight: 600; color: var(--forest); line-height: 1; }
+    .review-hero .rh-sub { font-size: 14px; color: var(--ink-soft); margin-top: 8px; line-height: 1.4; }
+    .bar-row { display: flex; align-items: center; gap: 12px; padding: 9px 0; }
+    .bar-row + .bar-row { border-top: 1px solid var(--line); }
+    .bar-lbl { flex: 0 0 42%; font-size: 14px; font-weight: 600; color: var(--ink); }
+    .bar-track { flex: 1; height: 10px; background: var(--surface-2); border-radius: 999px; overflow: hidden; }
+    .bar-fill { height: 100%; background: linear-gradient(90deg, var(--spruce), var(--brass)); border-radius: 999px; transition: width .6s ease; }
+    .bar-n { flex: 0 0 auto; font-size: 13px; font-weight: 700; color: var(--spruce); min-width: 20px; text-align: right; }
+    .review-bars { padding: 16px 18px; }
     .review-stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-top: 14px; }
     .stat { padding: 16px 18px; }
     .stat .sv { font-family: var(--font-display); font-size: 28px; font-weight: 600; color: var(--forest); }
@@ -1135,20 +1144,36 @@
         ? stuck.map(function () { return '<div class="card stuck-item"><div class="si-txt"></div><div class="si-meta"></div></div>'; }).join('')
         : '<div class="card empty-mini">Ничего не застряло — чисто 🌿</div>';
 
+      var totalCaptured = DATA.entries.length;
+      var weekCaptured = DATA.entries.filter(function (e) { return daysAgo(e.createdAt) <= 7; }).length;
+      var byType = DATA.types.map(function (tp) {
+        return { tp: tp, n: DATA.entries.filter(function (e) { return e.type === tp.id; }).length };
+      });
+      var maxType = Math.max(1, Math.max.apply(null, byType.map(function (x) { return x.n; })));
+
+      var barsHtml = byType.map(function (x) {
+        return '<div class="bar-row">' +
+          '<div class="bar-lbl">' + x.tp.icon + ' ' + escapeHtml(x.tp.title) + '</div>' +
+          '<div class="bar-track"><div class="bar-fill" style="width:' + Math.round(x.n / maxType * 100) + '%"></div></div>' +
+          '<div class="bar-n">' + x.n + '</div>' +
+        '</div>';
+      }).join('');
+
       el('review-body').innerHTML =
-        '<div class="card review-hero"><div class="rh-line">' +
-          'Ждут разбора: ' + inbox.length + '. В работе: ' + today + '. ' +
-          'Сверься с застрявшим и обнови списки.' +
-        '</div></div>' +
+        '<div class="card review-hero">' +
+          '<div class="rh-big">' + totalCaptured + '</div>' +
+          '<div class="rh-sub">мыслей разгружено из головы' + (weekCaptured ? ' · ' + weekCaptured + ' за последнюю неделю' : '') + '</div>' +
+        '</div>' +
         '<div class="review-stats">' +
           statTile(inbox.length, 'Не разобрано') +
           statTile(today, 'Сегодня / в работе') +
           statTile(waiting, 'Ждёт') +
-          statTile(someday, 'Когда-нибудь') +
+          statTile(doneTasks, 'Сделано') +
         '</div>' +
+        '<div class="review-block-title">По типам</div>' +
+        '<div class="card review-bars">' + barsHtml + '</div>' +
         '<div class="review-block-title">Что застряло</div>' +
-        stuckHtml +
-        (doneTasks ? '<div class="review-block-title">Сделано</div><div class="card stat"><div class="sv">' + doneTasks + '</div><div class="sl">задач отмечено выполненными</div></div>' : '');
+        stuckHtml;
 
       var nodes = el('review-body').querySelectorAll('.stuck-item');
       stuck.forEach(function (e, i) {
@@ -1317,14 +1342,19 @@
 
     // ---- Очистить всё (чистый лист) ----
     function clearAll() {
+      try { localStorage.removeItem(ONBOARD_KEY); } catch (e) {}
       DATA.entries = [];
       DATA.projects = [];
       nextId = 1000;
       saveLocal();
       saveCloud();   // перезапишет облако пустым состоянием и уберёт лишние куски
       render();
-      toast('Готово — чистый лист 🌿');
       if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.notificationOccurred('success'); } catch (e) {} }
+      // возвращаемся к первому запуску — снова показываем онбординг (с опцией «на примере»)
+      fetch('data.json?v=' + Date.now(), { cache: 'no-store' })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (json) { showOnboarding(json || { types: DEFAULT_TYPES, projects: [], entries: [] }); })
+        .catch(function () { showOnboarding({ types: DEFAULT_TYPES, projects: [], entries: [] }); });
     }
 
     function confirmClearAll() {
