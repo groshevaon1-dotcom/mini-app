@@ -489,7 +489,8 @@
           <button class="btn-accent" id="save-btn">Записать</button>
         </div>
         <div class="hint" id="capture-hint">Пиши не думая, куда — всё падает во «Входящие», разберёшь потом.</div>
-        <input type="file" id="file-input" multiple accept="image/*,application/pdf,.doc,.docx,.txt" style="display:none" />
+        <div class="att-note">📎 Можно прикрепить <b>только картинки</b> — фото и скриншоты. Другие файлы Telegram не сохраняет.</div>
+        <input type="file" id="file-input" multiple accept="image/*" style="display:none" />
       </div>
 
       <!-- 2. Inbox -->
@@ -542,10 +543,13 @@
       <!-- 5. Export -->
       <div class="export-group">
         <button class="export-btn" id="export-btn">⬇️ Выгрузить в .txt</button>
-        <button class="export-btn" id="backup-btn">💾 Выгрузить всё (.json) — с файлами и фото</button>
+        <button class="export-btn" id="backup-btn">💾 Сохранить копию (.json) — все записи и фото</button>
+        <button class="export-btn" id="restore-btn">♻️ Загрузить копию (.json) — вернуть сохранённое</button>
         <button class="export-btn" id="notion-btn">📋 Копировать для Notion</button>
         <button class="export-btn danger" id="clear-btn">🧹 Очистить всё — начать с чистого листа</button>
+        <input type="file" id="restore-input" accept="application/json,.json" style="display:none" />
       </div>
+      <p class="att-note" style="margin-top:10px;">💡 «Сохранить копию» скачивает файл <b>.json</b> со всеми записями и фото. Если что-то удалил или сменил устройство — жми <b>«Загрузить копию»</b> и выбери этот файл, всё вернётся как было.</p>
 
       <p class="privacy-note">🔒 Приватно и автономно: записи хранятся только у тебя — в твоём Telegram и на этом устройстве. На сервер ничего не отправляется, доступа ни у кого другого нет.<br><button class="method-link" id="method-open">🧠 Как это работает: GTD и эффект Зейгарник</button></p>
     </div>
@@ -885,9 +889,9 @@
       var body;
       if (isImg) {
         body = '<img class="att-view-img" src="' + a.url + '" alt="' + escapeHtml(a.name) + '">' +
-          '<div class="att-note">Сохранить: долгий тап по фото → «Сохранить изображение». Или кнопкой ниже (в браузере по ссылке).</div>';
+          '<div class="att-note">Сохранить можно кнопкой ниже. В Telegram на телефоне надёжнее всего — <b>тап и удержание</b> по фото → «Сохранить изображение».</div>';
       } else {
-        body = '<div class="att-note">Документ прикреплён как метка — по нему видно, что к записи относится файл. Предпросмотр и хранение самих файлов в Telegram недоступны (для этого нужен серверный этап). Картинки открываются и хранятся полностью.</div>';
+        body = '<div class="att-note">Это метка файла (осталась от старой версии). Само вложение здесь можно хранить и открывать <b>только как картинку</b> — предпросмотр и выгрузка других файлов в Telegram недоступны.</div>';
       }
       var ov = document.getElementById('att-modal');
       if (ov) ov.parentNode.removeChild(ov);
@@ -904,14 +908,37 @@
       ov.addEventListener('click', function (e) { if (e.target === ov) ov.parentNode.removeChild(ov); });
       document.getElementById('att-close').addEventListener('click', function () { ov.parentNode.removeChild(ov); });
       if (isImg) {
-        document.getElementById('att-save').addEventListener('click', function () {
-          try {
-            var link = document.createElement('a'); link.href = a.url;
-            link.download = (a.name && /\.(jpg|jpeg|png)$/i.test(a.name)) ? a.name : ((a.name || 'photo') + '.jpg');
-            document.body.appendChild(link); link.click(); document.body.removeChild(link);
-            toast('Сохраняю… (в Telegram — долгий тап по фото)');
-          } catch (e) { toast('В Telegram: долгий тап по фото → «Сохранить»'); }
-        });
+        document.getElementById('att-save').addEventListener('click', function () { saveImageAttachment(a); });
+      }
+    }
+
+    function dataURLtoBlob(durl){
+      try {
+        var parts = String(durl).split(','); var head = parts[0] || '';
+        var mime = (head.match(/data:([^;]+)/) || [])[1] || 'image/jpeg';
+        if (/;base64/.test(head)) {
+          var bin = atob(parts[1] || ''); var n = bin.length; var u8 = new Uint8Array(n);
+          for (var i = 0; i < n; i++) u8[i] = bin.charCodeAt(i);
+          return new Blob([u8], { type: mime });
+        }
+        return new Blob([decodeURIComponent(parts[1] || '')], { type: mime });
+      } catch (e) { return null; }
+    }
+
+    function saveImageAttachment(a){
+      if (!a || !a.url) return;
+      var base = a.name ? a.name.replace(/\.[^.]+$/, '') : 'photo';
+      var name = (a.name && /\.(jpe?g|png|webp|gif)$/i.test(a.name)) ? a.name : (base + '.jpg');
+      var inTg = !!(tg && tg.initData);
+      try {
+        var blob = dataURLtoBlob(a.url);
+        var href = blob ? URL.createObjectURL(blob) : a.url;
+        var link = document.createElement('a'); link.href = href; link.download = name; link.rel = 'noopener';
+        document.body.appendChild(link); link.click(); document.body.removeChild(link);
+        if (blob) setTimeout(function () { URL.revokeObjectURL(href); }, 4000);
+        toast(inTg ? 'Если не сохранилось — тап и удержание по фото → «Сохранить»' : 'Фото уходит в «Загрузки»');
+      } catch (e) {
+        toast('Тап и удержание по фото → «Сохранить изображение»');
       }
     }
 
@@ -1482,13 +1509,24 @@
     function applySmartSuggestion(entry, body){
       var s = analyze(entry.text);
       if (!s.confident) return;
+      // Выбираем тип напрямую (без эмуляции click — чтобы результат не зависел от порядка/гонки обработчиков)
       var typeBtn = body.querySelector('.pick button[data-type="' + s.type + '"]');
-      if (typeBtn) { typeBtn.click(); typeBtn.classList.add('suggested'); }
+      if (typeBtn) {
+        triagePick = s.type;
+        body.querySelectorAll('.pick button').forEach(function (x) { x.classList.remove('sel'); });
+        typeBtn.classList.add('sel');
+        typeBtn.classList.add('suggested');
+        var te = el('task-extra'); if (te) te.classList.toggle('show', s.type === 'task');
+      }
       if (s.type === 'task') {
         var ns = el('next-step'); if (ns && !ns.value) ns.value = s.nextStep;
         if (s.due) { var du = el('due'); if (du) du.value = s.due; }
         if (s.time) { var dt = el('due-time'); if (dt && !dt.value) dt.value = s.time; }
-        if (s.eisen) { var eb = body.querySelector('#eisen-pick button[data-eisen="' + s.eisen + '"]'); if (eb) eb.click(); }
+        if (s.eisen) {
+          triageEisen = s.eisen;
+          var eb = body.querySelector('#eisen-pick button[data-eisen="' + s.eisen + '"]');
+          if (eb) { body.querySelectorAll('#eisen-pick button').forEach(function (x) { x.classList.remove('sel'); }); eb.classList.add('sel'); }
+        }
       }
       var hint = el('smart-hint');
       if (hint) {
@@ -2278,6 +2316,34 @@
       }
     }
 
+    // ---- Загрузка копии (импорт .json) ----
+    function doImport(data) {
+      var maxId = 0;
+      data.entries.forEach(function (e) { if (typeof e.id === 'number' && e.id > maxId) maxId = e.id; });
+      data.nextId = Math.max(data.nextId || 0, maxId + 1);
+      applyData(data);          // заменяет DATA, сохраняет локально, перерисовывает
+      scheduleCloudSave();      // и переносит в облако Telegram
+      try { localStorage.setItem(ONBOARD_KEY, '1'); } catch (e) {}
+      toast('Восстановлено из копии: ' + data.entries.length + ' записей');
+      if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.notificationOccurred('success'); } catch (e) {} }
+    }
+
+    function importBackup(file) {
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function (ev) {
+        var data;
+        try { data = JSON.parse(ev.target.result); } catch (e) { toast('Не похоже на файл копии (.json)'); return; }
+        if (!data || !Array.isArray(data.entries)) { toast('В файле нет записей — это точно копия «Органайзера»?'); return; }
+        var cur = (DATA && DATA.entries) ? DATA.entries.length : 0;
+        var msg = 'Загрузить копию? Сейчас записей: ' + cur + ', в копии: ' + data.entries.length + '. Текущие будут заменены сохранёнными из файла.';
+        if (tg && tg.showConfirm) { tg.showConfirm(msg, function (ok) { if (ok) doImport(data); }); }
+        else if (window.confirm(msg)) { doImport(data); }
+      };
+      reader.onerror = function () { toast('Не удалось прочитать файл'); };
+      reader.readAsText(file);
+    }
+
     // ---- Navigation ----
     function showScreen(name) {
       ['main', 'triage', 'list', 'review', 'matrix', 'search'].forEach(function (s) {
@@ -2326,6 +2392,8 @@
       var si = el('search-input'); if (si) si.addEventListener('input', function () { renderSearchResults(this.value); });
       el('export-btn').addEventListener('click', exportData);
       var bkp = el('backup-btn'); if (bkp) bkp.addEventListener('click', exportBackup);
+      var rst = el('restore-btn'); if (rst) rst.addEventListener('click', function () { el('restore-input').click(); });
+      var rin = el('restore-input'); if (rin) rin.addEventListener('change', function () { importBackup(this.files && this.files[0]); this.value = ''; });
       el('notion-btn').addEventListener('click', exportNotion);
       el('clear-btn').addEventListener('click', confirmClearAll);
       el('theme-toggle').addEventListener('click', toggleTheme);
