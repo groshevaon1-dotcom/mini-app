@@ -692,17 +692,33 @@
     }
 
     function serializeState() {
-      return JSON.stringify({ types: DATA.types, projects: DATA.projects, entries: DATA.entries, nextId: nextId });
+      return JSON.stringify({ types: DATA.types, projects: DATA.projects, entries: DATA.entries, nextId: nextId, updatedAt: DATA.updatedAt || 0 });
     }
 
     function saveLocal() {
       try { localStorage.setItem(STORE_KEY, serializeState()); } catch (e) {}
     }
 
+    var _suppressCloud = false;
     function save() {
       if (!DATA) return;
+      if (!_suppressCloud) DATA.updatedAt = Date.now(); // время последнего изменения — для сверки между устройствами
       saveLocal();
-      scheduleCloudSave();
+      if (!_suppressCloud) scheduleCloudSave();
+    }
+
+    // Подтянуть свежие данные из облака (при возврате в приложение). Побеждает более новое по времени.
+    function pullFromCloud() {
+      if (!cloudOn() || !DATA) return;
+      loadFromCloud(function (cloud) {
+        if (!cloud || !cloud.entries) return;
+        if ((cloud.updatedAt || 0) > (DATA.updatedAt || 0)) {
+          _suppressCloud = true;
+          try { applyData(cloud); } catch (e) {}
+          _suppressCloud = false;
+          toast('Обновлено с других устройств');
+        }
+      });
     }
 
     function scheduleCloudSave() {
@@ -833,9 +849,11 @@
 
     function openAttachment(a) {
       if (!a) return;
+      var isImg = (a.kind === 'image' && a.url);
       var body;
-      if (a.kind === 'image' && a.url) {
-        body = '<img class="att-view-img" src="' + a.url + '" alt="' + escapeHtml(a.name) + '">';
+      if (isImg) {
+        body = '<img class="att-view-img" src="' + a.url + '" alt="' + escapeHtml(a.name) + '">' +
+          '<div class="att-note">Сохранить: долгий тап по фото → «Сохранить изображение». Или кнопкой ниже (в браузере по ссылке).</div>';
       } else {
         body = '<div class="att-note">Документ прикреплён как метка — по нему видно, что к записи относится файл. Предпросмотр и хранение самих файлов в Telegram недоступны (для этого нужен серверный этап). Картинки открываются и хранятся полностью.</div>';
       }
@@ -846,12 +864,23 @@
       ov.innerHTML = '<div class="pmodal-card att-card">' +
         '<div class="pmodal-h att-h">' + attIcon(a.kind) + ' <span></span></div>' +
         body +
-        '<button class="btn-accent" id="att-close" style="width:100%;height:50px;margin-top:16px;">Закрыть</button>' +
+        (isImg ? '<button class="btn-accent" id="att-save" style="width:100%;height:50px;margin-top:16px;">💾 Сохранить фото</button>' : '') +
+        '<button class="export-btn" id="att-close" style="width:100%;margin-top:10px;">Закрыть</button>' +
         '</div>';
       document.body.appendChild(ov);
       ov.querySelector('.att-h span').textContent = a.name;
       ov.addEventListener('click', function (e) { if (e.target === ov) ov.parentNode.removeChild(ov); });
       document.getElementById('att-close').addEventListener('click', function () { ov.parentNode.removeChild(ov); });
+      if (isImg) {
+        document.getElementById('att-save').addEventListener('click', function () {
+          try {
+            var link = document.createElement('a'); link.href = a.url;
+            link.download = (a.name && /\.(jpg|jpeg|png)$/i.test(a.name)) ? a.name : ((a.name || 'photo') + '.jpg');
+            document.body.appendChild(link); link.click(); document.body.removeChild(link);
+            toast('Сохраняю… (в Telegram — долгий тап по фото)');
+          } catch (e) { toast('В Telegram: долгий тап по фото → «Сохранить»'); }
+        });
+      }
     }
 
     function escapeHtml(s) {
@@ -1126,8 +1155,12 @@
             '<div class="task-due">📅 <input type="date" class="due-input"></div>' +
           '</div>' +
           '<button class="task-del" title="Удалить задачу">🗑️</button>';
-        c.querySelector('.title').textContent = t.text;
-        if (t.nextStep) c.querySelector('.next span').textContent = t.nextStep;
+        var titleEl = c.querySelector('.title');
+        titleEl.textContent = t.text;
+        titleEl.style.cursor = 'pointer';
+        titleEl.title = 'Изменить';
+        titleEl.addEventListener('click', function () { openEditEntry(t); });
+        if (t.nextStep) { var nx = c.querySelector('.next'); nx.querySelector('span').textContent = t.nextStep; nx.style.cursor = 'pointer'; nx.addEventListener('click', function () { openEditEntry(t); }); }
         var di = c.querySelector('.due-input');
         if (t.due) di.value = t.due;
         di.addEventListener('change', function () {
@@ -2248,7 +2281,8 @@
 
       // Автосохранение при сворачивании/закрытии: localStorage синхронно + попытка в облако
       var flush = function () { try { if (DATA) { saveLocal(); saveCloud(); } } catch (e) {} };
-      document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'hidden') flush(); });
+      document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'hidden') flush(); else pullFromCloud(); });
+      window.addEventListener('focus', pullFromCloud);
       window.addEventListener('pagehide', flush);
       window.addEventListener('beforeunload', flush);
 
