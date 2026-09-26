@@ -440,7 +440,7 @@
           </div>
           <button class="btn-accent" id="save-btn">Записать</button>
         </div>
-        <div class="hint">Пиши не думая, куда — всё падает во «Входящие», разберёшь потом.</div>
+        <div class="hint" id="capture-hint">Пиши не думая, куда — всё падает во «Входящие», разберёшь потом.</div>
         <input type="file" id="file-input" multiple accept="image/*,application/pdf,.doc,.docx,.txt" style="display:none" />
       </div>
 
@@ -903,6 +903,24 @@
       elp.textContent = '« ' + DAILY_PHRASES[doy % DAILY_PHRASES.length] + ' »';
     }
 
+    // Ротационные фразы: подсказка захвата и экран «Голова чистая»
+    var CAPTURE_HINTS = [
+      'Пиши не думая, куда — всё падает во «Входящие», разберёшь потом.',
+      'Сначала поймай, потом реши. Тип и шаг — на разборе.',
+      'Мысль ценнее, пока свежая. Кинь её сюда — не потеряется.',
+      'Голова — плохое хранилище. Выгружай, освобождай внимание.',
+      'Не держи в уме то, что удержит эта строка.',
+      'Одна строка — одна мысль. Просто лови, не редактируй.'
+    ];
+    var DONE_PHRASES = [
+      'Все мысли на местах — можно выдохнуть.',
+      'Ничего не висит. Ты ничего не забыл.',
+      'Ноль незакрытых циклов. Внимание свободно.',
+      'Мысли на местах. Освободи голову для главного.',
+      'Инбокс пуст — редкое и приятное чувство.'
+    ];
+    function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
     // ---- Render main ----
     function render() {
       setDailyPhrase();
@@ -1304,7 +1322,7 @@
           '<div class="triage-done-all">' +
           '<div class="done-ring"><div class="em">🌿</div></div>' +
           '<div class="m">Голова чистая</div>' +
-          '<div class="sub">Все мысли на местах — можно выдохнуть.</div>' +
+          '<div class="sub">' + pick(DONE_PHRASES) + '</div>' +
           (total ? '<div class="done-count">Разобрано за подход: ' + total + '</div>' : '') +
           '<div><button class="btn-accent" style="margin-top:26px;height:50px;" onclick="backToMain()">На главный</button></div>' +
           '</div>';
@@ -1884,6 +1902,9 @@
       el('notion-btn').addEventListener('click', exportNotion);
       el('clear-btn').addEventListener('click', confirmClearAll);
       el('theme-toggle').addEventListener('click', toggleTheme);
+
+      // Случайная подсказка захвата при открытии
+      var ch = el('capture-hint'); if (ch) ch.textContent = pick(CAPTURE_HINTS);
 
       // Окно приватности: по чипу в шапке и по строке внизу
       el('owner-chip').addEventListener('click', openPrivacy);
