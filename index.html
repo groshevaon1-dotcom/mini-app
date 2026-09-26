@@ -397,6 +397,8 @@
     .smart-hint[hidden] { display: none; }
     .pick button.suggested { position: relative; }
     .pick button.suggested::after { content: '✨'; position: absolute; top: -7px; right: -6px; font-size: 13px; }
+    .remind-card { border: 1px solid var(--brass); box-shadow: 0 0 0 3px var(--brass-wash); }
+    .remind-card .next { background: var(--brass-wash); color: var(--burn); }
   </style>
 </head>
 <body>
@@ -440,6 +442,10 @@
         </div>
         <button class="btn-accent go" id="triage-btn">Разобрать</button>
       </div>
+
+      <!-- Напоминания (появляются при открытии, когда подошло время) -->
+      <div class="section-title" id="rem-title" hidden>🔔 Напоминания</div>
+      <div class="work" id="reminders-list"></div>
 
       <!-- 3. Work today -->
       <div class="section-title">Сегодня / В работе</div>
@@ -710,6 +716,17 @@
       if (d.nextId) nextId = d.nextId;
       saveLocal();
       render();
+      maybeNotifyReminders();
+    }
+
+    var _remindNotified = false;
+    function maybeNotifyReminders(){
+      if (_remindNotified) return;
+      var items = dueReminders();
+      if (!items.length) return;
+      _remindNotified = true;
+      try { if (tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('warning'); } catch (e) {}
+      toast('🔔 Напоминаний: ' + items.length + ' — смотри вверху');
     }
 
     function toast(msg) {
@@ -844,11 +861,37 @@
         : 'Всё разобрано — чисто 🌿';
       el('triage-btn').disabled = inbox.length === 0;
 
+      renderReminders();
       renderWork();
       renderLists();
       renderProjects();
       renderTypes();
       save();
+    }
+
+    function fmtRemindLine(e){
+      var parts = [];
+      if (e.due) { var d = new Date(e.due + 'T' + (e.dueTime || '09:00') + ':00'); parts.push('срок: ' + fmtDueHint(_mid(d)) + (e.dueTime ? ' ' + e.dueTime : '')); }
+      if (e.nextStep) parts.push('шаг: ' + e.nextStep);
+      return parts.join(' · ');
+    }
+
+    function renderReminders(){
+      var wrap = el('reminders-list'), title = el('rem-title');
+      if (!wrap || !title) return;
+      var items = dueReminders();
+      wrap.innerHTML = '';
+      if (!items.length) { title.hidden = true; return; }
+      title.hidden = false;
+      items.forEach(function (t) {
+        var c = document.createElement('div');
+        c.className = 'card task-card remind-card';
+        c.innerHTML = '<div class="check"></div><div class="txt"><div class="title"></div><div class="next"><b>🔔</b><span></span></div></div>';
+        c.querySelector('.title').textContent = t.text;
+        c.querySelector('.next span').textContent = fmtRemindLine(t) || 'пора';
+        c.querySelector('.check').addEventListener('click', function () { t.done = true; save(); render(); toast('Готово ✓'); });
+        wrap.appendChild(c);
+      });
     }
 
     function projectById(id) {
@@ -1051,6 +1094,7 @@
     var triagePick = null;
     var triageStatus = 'today';
     var triageEisen = null;
+    var triageRemind = '';
 
     function eisenPickHtml() {
       return EISEN.map(function (q) {
@@ -1090,6 +1134,15 @@
       return null;
     }
 
+    function parseRuTime(t){
+      // «в 15:00», «в 9:30», «в 18 часов», «в 9 утра», «в 7 вечера»
+      var m = t.match(/\b(\d{1,2})[:.](\d{2})\b/);
+      if (m) { var h = +m[1], mi = +m[2]; if (h < 24 && mi < 60) return _pad2(h) + ':' + _pad2(mi); }
+      var m2 = t.match(/в\s+(\d{1,2})\s*(час|ч|утра|вечера|дня)/);
+      if (m2) { var hh = +m2[1]; if (/вечера/.test(m2[2]) && hh < 12) hh += 12; if (/дня/.test(m2[2]) && hh < 12) hh += 12; if (hh < 24) return _pad2(hh) + ':00'; }
+      return null;
+    }
+
     function fmtDueHint(d){
       var du = _daysUntil(d);
       if (du === 0) return 'сегодня';
@@ -1103,10 +1156,29 @@
       return s ? s.charAt(0).toUpperCase() + s.slice(1) : '';
     }
 
+    function computeRemindAt(dateStr, timeStr, offset){
+      if (!dateStr || !offset) return null;
+      var dt = new Date(dateStr + 'T' + (timeStr || '09:00') + ':00');
+      if (isNaN(dt.getTime())) return null;
+      var ms = dt.getTime();
+      if (offset === '1h') ms -= 3600000;
+      else if (offset === '3h') ms -= 3 * 3600000;
+      else if (offset === '1d') ms -= 86400000;
+      return new Date(ms).toISOString();
+    }
+
+    function dueReminders(){
+      var now = Date.now();
+      return DATA.entries.filter(function (e) {
+        return e.type === 'task' && !e.done && e.remindAt && new Date(e.remindAt).getTime() <= now;
+      });
+    }
+
     function analyze(text){
       var raw = text || '', t = raw.toLowerCase();
-      var res = { type: 'thought', due: null, dueHint: '', eisen: null, nextStep: '', confident: false };
+      var res = { type: 'thought', due: null, dueHint: '', time: null, eisen: null, nextStep: '', confident: false };
       function has(arr){ for (var i = 0; i < arr.length; i++) if (t.indexOf(arr[i]) > -1) return true; return false; }
+      res.time = parseRuTime(t);
       var taskVerbs = ['позвон','перезвон','дозвон','напиш','написать','отправ','сделай','сделать','купи','купить','оплат','заплат','встрет','встреч','запиш','записать','записаться','договор','заброн','заказа','подготов','собра','сдать','сдай','отвез','забра','проверь','проверить','назнач','согласова','сходить','сходи','убра','помыть','починит','отремонт'];
       var ideaMark = ['идея','а что если','что если','можно сделать','было бы','а если','придумал','придумала','концепт','запустить','а давай'];
       var insightMark = ['понял','поняла','осознал','осознала','инсайт','вывод','оказывается','заметил','заметила','урок','важно помнить'];
@@ -1136,6 +1208,7 @@
       if (s.type === 'task') {
         var ns = el('next-step'); if (ns && !ns.value) ns.value = s.nextStep;
         if (s.due) { var du = el('due'); if (du) du.value = s.due; }
+        if (s.time) { var dt = el('due-time'); if (dt && !dt.value) dt.value = s.time; }
         if (s.eisen) { var eb = body.querySelector('#eisen-pick button[data-eisen="' + s.eisen + '"]'); if (eb) eb.click(); }
       }
       var hint = el('smart-hint');
@@ -1161,6 +1234,7 @@
       triagePick = null;
       triageStatus = 'today';
       triageEisen = null;
+      triageRemind = '';
       var total = triageQueue.length;
       var body = el('triage-body');
 
@@ -1210,6 +1284,15 @@
           '<input id="next-step" placeholder="Например: позвонить в четверг в 15:00" /></div>' +
           '<div class="fld"><label>Срок (необязательно)</label>' +
           '<input id="due" type="date" /></div>' +
+          '<div class="fld"><label>Время (необязательно)</label>' +
+          '<input id="due-time" type="time" /></div>' +
+          '<span class="seg-label">🔔 Напомнить</span>' +
+          '<div class="seg" id="remind-seg">' +
+            '<button data-remind="" class="sel">Нет</button>' +
+            '<button data-remind="at">В срок</button>' +
+            '<button data-remind="1h">За 1 ч</button>' +
+            '<button data-remind="1d">За день</button>' +
+          '</div>' +
           projectSelectHtml() +
         '</div>' +
         '<div class="triage-actions">' +
@@ -1256,6 +1339,14 @@
         });
       });
 
+      body.querySelectorAll('#remind-seg button').forEach(function (b) {
+        b.addEventListener('click', function () {
+          triageRemind = b.getAttribute('data-remind');
+          body.querySelectorAll('#remind-seg button').forEach(function (x) { x.classList.remove('sel'); });
+          b.classList.add('sel');
+        });
+      });
+
       el('triage-confirm').addEventListener('click', confirmTriage);
 
       var delBtn = el('triage-del');
@@ -1296,6 +1387,10 @@
         entry.nextStep = ns;
         var due = el('due').value;
         entry.due = due || null;
+        entry.dueTime = el('due-time') ? (el('due-time').value || null) : null;
+        entry.remind = triageRemind || '';
+        entry.remindAt = computeRemindAt(entry.due, entry.dueTime, entry.remind);
+        entry.notified = false;
         entry.status = triageStatus || 'today';
         entry.eisen = triageEisen || null;
         var ps = el('proj-select');
