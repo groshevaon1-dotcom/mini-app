@@ -442,6 +442,24 @@
 
     var el = function (id) { return document.getElementById(id); };
 
+    // ---- Приватность: приложение открывается только у владельца ----
+    var OWNER_ID = 528421736;
+    function isOwner() {
+      try {
+        var u = tg && tg.initDataUnsafe && tg.initDataUnsafe.user;
+        return !!(u && u.id === OWNER_ID);
+      } catch (e) { return false; }
+    }
+    function showPrivate() {
+      var app = document.querySelector('.app');
+      if (app) app.innerHTML =
+        '<div class="fallback">' +
+        '<div class="em">🔒</div>' +
+        '<h2>Личное приложение</h2>' +
+        '<p>«Органайзер Хаоса» — личный органайзер. Доступ открыт только владельцу.</p>' +
+        '</div>';
+    }
+
     // ---- Persist: локально (устройство) + облако Telegram (синхронизация между устройствами) ----
     var CLOUD_META = 'chaos_meta';
     var CLOUD_CHUNK = 'chaos_';
@@ -1258,6 +1276,7 @@
 
     // ---- Wire up ----
     document.addEventListener('DOMContentLoaded', function () {
+      if (!isOwner()) { showPrivate(); return; }
       el('save-btn').addEventListener('click', saveCapture);
       var ta = el('capture-input');
       ta.addEventListener('input', function () { autogrow(ta); });
