@@ -113,6 +113,9 @@
       padding: 6px 14px; width: fit-content; max-width: calc(100% - 20px);
     }
     .streak-chip[hidden] { display: none; }
+    .search-field { padding: 2px 16px; margin-bottom: 12px; }
+    .search-field input { width: 100%; border: none; outline: none; background: transparent; font: inherit; font-size: 16px; color: var(--ink); padding: 12px 0; }
+    .search-field input::placeholder { color: #A7AEA0; }
 
     /* Окно приватности */
     .pmodal { position: fixed; inset: 0; z-index: 80; display: flex; align-items: flex-end; justify-content: center; background: rgba(20,26,18,.55); padding: 0; animation: pmfade .2s ease; }
@@ -444,6 +447,7 @@
         </div>
         <div class="head-actions">
           <button class="review-pill" id="review-btn">🗓 Обзор</button>
+          <button class="review-pill theme-toggle" id="search-btn" aria-label="Поиск" title="Поиск">🔎</button>
           <button class="review-pill theme-toggle" id="theme-toggle" aria-label="Переключить тему" title="Тема">☾</button>
         </div>
       </div>
@@ -554,6 +558,18 @@
         <div class="ti">Матрица Эйзенхауэра<small>Задачи по срочности и важности</small></div>
       </div>
       <div id="matrix-body"></div>
+    </div>
+
+    <!-- SEARCH SCREEN -->
+    <div id="screen-search" class="screen">
+      <div class="triage-top">
+        <button class="back" id="search-back">←</button>
+        <div class="ti">Поиск<small>По всем записям</small></div>
+      </div>
+      <div class="card search-field">
+        <input id="search-input" type="search" placeholder="Что ищем?" autocomplete="off" />
+      </div>
+      <div class="list-view" id="search-body"></div>
     </div>
   </div>
 
@@ -1725,6 +1741,31 @@
       else if (key === 'done') renderEntryList('✅ Сделано', DATA.entries.filter(function (e) { return e.type === 'task' && e.done; }));
     }
 
+    function searchTypeLabel(id) { var t = typeById(id); if (t) return t.icon + ' ' + t.title; return id === 'inbox' ? '📥 Входящие' : id; }
+    function openSearch() {
+      showScreen('search');
+      var inp = el('search-input');
+      if (inp) { inp.value = ''; renderSearchResults(''); setTimeout(function () { try { inp.focus(); } catch (e) {} }, 80); }
+    }
+    function renderSearchResults(q) {
+      var body = el('search-body'); if (!body) return;
+      q = (q || '').trim().toLowerCase();
+      if (!q) { body.innerHTML = '<div class="card empty-mini">Введи слово — найду по тексту записи и следующему шагу.</div>'; return; }
+      var items = DATA.entries.filter(function (e) {
+        return (e.text || '').toLowerCase().indexOf(q) > -1 || (e.nextStep || '').toLowerCase().indexOf(q) > -1;
+      });
+      if (!items.length) { body.innerHTML = '<div class="card empty-mini">Ничего не нашлось по «' + escapeHtml(q) + '».</div>'; return; }
+      body.innerHTML = items.map(function () { return '<div class="card item"><div class="it-txt"></div><div class="it-meta"></div></div>'; }).join('');
+      var nodes = body.querySelectorAll('.item');
+      items.forEach(function (e, i) {
+        nodes[i].querySelector('.it-txt').textContent = e.text;
+        var meta = searchTypeLabel(e.type) + ' · ' + fmtTime(e.createdAt);
+        if (e.nextStep) meta += ' · Шаг: ' + e.nextStep;
+        nodes[i].querySelector('.it-meta').textContent = meta;
+        if (e.attachments && e.attachments.length) nodes[i].insertAdjacentHTML('beforeend', attRowHtml(e.attachments));
+      });
+    }
+
     function openProjectCreate() {
       var ov = document.getElementById('proj-modal'); if (ov) ov.parentNode.removeChild(ov);
       ov = document.createElement('div'); ov.className = 'pmodal'; ov.id = 'proj-modal';
@@ -2025,7 +2066,7 @@
 
     // ---- Navigation ----
     function showScreen(name) {
-      ['main', 'triage', 'list', 'review', 'matrix'].forEach(function (s) {
+      ['main', 'triage', 'list', 'review', 'matrix', 'search'].forEach(function (s) {
         el('screen-' + s).classList.toggle('active', s === name);
       });
       window.scrollTo(0, 0);
@@ -2059,6 +2100,9 @@
       el('tile-waiting').addEventListener('click', function () { openStatusList('waiting', '⏳ Ждёт'); });
       el('tile-someday').addEventListener('click', function () { openStatusList('someday', '🌙 Когда-нибудь'); });
       var ap = el('add-project'); if (ap) ap.addEventListener('click', openProjectCreate);
+      var sb = el('search-btn'); if (sb) sb.addEventListener('click', openSearch);
+      var sbk = el('search-back'); if (sbk) sbk.addEventListener('click', backToMain);
+      var si = el('search-input'); if (si) si.addEventListener('input', function () { renderSearchResults(this.value); });
       el('export-btn').addEventListener('click', exportData);
       el('notion-btn').addEventListener('click', exportNotion);
       el('clear-btn').addEventListener('click', confirmClearAll);
