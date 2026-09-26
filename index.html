@@ -350,6 +350,8 @@
       border-radius: 12px; padding: 8px 12px; line-height: 1.35;
     }
     .two-min b { color: var(--burn); }
+    .swipe-hint { text-align: center; font-size: 11.5px; color: var(--ink-soft); margin: 9px 0 2px; opacity: .85; }
+    .triage-card { will-change: transform; }
     .pick-label { font-size: 12px; color: var(--lake); margin: 14px 6px 8px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.14em; }
     .pick { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
     .pick button {
@@ -1414,6 +1416,7 @@
           '<div class="edit-hint">✏️ можно поправить текст прямо здесь</div>' +
           attRowHtml(entry.attachments) +
         '</div>' +
+        '<div class="swipe-hint">← смахни: пропустить &nbsp;·&nbsp; принять →</div>' +
         '<div class="two-min">⏱️ <b>Правило 2 минут:</b> если разобраться займёт меньше 2 минут — сделай прямо сейчас и отметь «Сделано».</div>' +
         '<div class="smart-hint" id="smart-hint" hidden></div>' +
         '<div class="pick-label">Что это?</div>' +
@@ -1502,7 +1505,50 @@
 
       // Умный разбор: предзаполняем тип/срок/приоритет/шаг — пользователю остаётся подтвердить
       applySmartSuggestion(entry, body);
+
+      // Свайпы: вправо — принять, влево — пропустить
+      var tc = body.querySelector('.triage-card');
+      if (tc) attachSwipe(tc);
     }
+
+    function skipTriage() {
+      triageIndex++;
+      renderTriageStep();
+      if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.impactOccurred('light'); } catch (e) {} }
+    }
+
+    function attachSwipe(card) {
+      var x0 = 0, y0 = 0, dx = 0, active = false, down = false;
+      card.style.touchAction = 'pan-y';
+      function reset() { card.style.transition = 'transform .18s ease, opacity .18s ease'; card.style.transform = ''; card.style.opacity = ''; }
+      card.addEventListener('pointerdown', function (e) { down = true; active = false; x0 = e.clientX; y0 = e.clientY; dx = 0; });
+      card.addEventListener('pointermove', function (e) {
+        if (!down) return;
+        var ddx = e.clientX - x0, ddy = e.clientY - y0;
+        if (!active) {
+          if (Math.abs(ddx) > 12 && Math.abs(ddx) > Math.abs(ddy)) { active = true; card.style.transition = 'none'; try { card.setPointerCapture(e.pointerId); } catch (_) {} }
+          else return;
+        }
+        dx = ddx;
+        card.style.transform = 'translateX(' + dx + 'px) rotate(' + (dx * 0.02) + 'deg)';
+        card.style.opacity = String(Math.max(0.55, 1 - Math.abs(dx) / 500));
+      });
+      function finish() {
+        if (!down) return; down = false;
+        if (!active) return;
+        active = false;
+        if (dx > 80) {
+          if (!triagePick) { reset(); toast('Выбери тип — или смахни влево, чтобы пропустить'); }
+          else { card.style.transition = 'transform .16s ease, opacity .16s ease'; card.style.transform = 'translateX(120%)'; card.style.opacity = '0'; swHapt(); setTimeout(confirmTriage, 150); }
+        } else if (dx < -80) {
+          card.style.transition = 'transform .16s ease, opacity .16s ease'; card.style.transform = 'translateX(-120%)'; card.style.opacity = '0'; swHapt(); setTimeout(skipTriage, 150);
+        } else { reset(); }
+        dx = 0;
+      }
+      card.addEventListener('pointerup', finish);
+      card.addEventListener('pointercancel', finish);
+    }
+    function swHapt() { try { if (tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('medium'); } catch (e) {} }
 
     function deleteTriageEntry() {
       var entry = triageQueue[triageIndex];
