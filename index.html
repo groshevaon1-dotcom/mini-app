@@ -280,9 +280,16 @@
     }
     .task-extra input::placeholder { color: #A7AEA0; }
     .triage-actions { margin-top: 20px; }
-    .triage-done-all { text-align: center; padding: 54px 16px; }
-    .triage-done-all .em { font-size: 52px; }
-    .triage-done-all .m { margin-top: 16px; font-family: var(--font-display); font-size: 20px; color: var(--forest); line-height: 1.5; }
+    .triage-done-all { text-align: center; padding: 48px 16px; }
+    .done-ring { position: relative; width: 120px; height: 120px; margin: 0 auto 6px; display: flex; align-items: center; justify-content: center; }
+    .done-ring .em { font-size: 56px; animation: donePop .6s cubic-bezier(.2,.8,.2,1) both; }
+    .done-ring::before, .done-ring::after { content: ""; position: absolute; inset: 0; border-radius: 50%; border: 2px solid var(--shoot); opacity: 0; animation: exhale 2.6s ease-out infinite; }
+    .done-ring::after { animation-delay: 1.3s; }
+    @keyframes exhale { 0% { transform: scale(.45); opacity: .75; } 100% { transform: scale(1.7); opacity: 0; } }
+    @keyframes donePop { 0% { transform: scale(.4); opacity: 0; } 60% { transform: scale(1.12); } 100% { transform: scale(1); opacity: 1; } }
+    .triage-done-all .m { margin-top: 8px; font-family: var(--font-display); font-size: 26px; color: var(--forest); line-height: 1.3; }
+    .triage-done-all .sub { margin-top: 10px; font-size: 14px; color: var(--ink-soft); }
+    .done-count { margin-top: 18px; display: inline-block; font-size: 13px; font-weight: 600; color: var(--spruce); background: var(--shoot); border-radius: 999px; padding: 8px 16px; }
 
     /* Toast */
     .toast {
@@ -927,10 +934,13 @@
         el('triage-progress').textContent = '';
         body.innerHTML =
           '<div class="triage-done-all">' +
-          '<div class="em">🌿</div>' +
-          '<div class="m">Входящие разобраны.<br>Голова чище.</div>' +
-          '<button class="btn-accent" style="margin-top:22px;height:50px;" onclick="backToMain()">На главный</button>' +
+          '<div class="done-ring"><div class="em">🌿</div></div>' +
+          '<div class="m">Голова чистая</div>' +
+          '<div class="sub">Все мысли на местах — можно выдохнуть.</div>' +
+          (total ? '<div class="done-count">Разобрано за подход: ' + total + '</div>' : '') +
+          '<div><button class="btn-accent" style="margin-top:26px;height:50px;" onclick="backToMain()">На главный</button></div>' +
           '</div>';
+        if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.notificationOccurred('success'); } catch (e) {} }
         return;
       }
 
