@@ -21,7 +21,8 @@
       --ink: #1B221C;
       --ink-soft: #5C6659;
       --line: #D2D6C9;
-      --forest: #1E3D2B;
+      --forest: #1E3D2B;      /* текст заголовков */
+      --forest-bg: #1E3D2B;   /* фон зелёных кнопок/чипов (разведён с текстом ради тёмной темы) */
       --spruce: #2C5439;
       --lake: #2C6382;
       --shoot: #CFE0C6;
@@ -38,6 +39,33 @@
       --font-display: "Literata", Georgia, "Times New Roman", serif;
       --font-body: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
     }
+
+    /* Тёмная тема Terra Nova — системная (prefers-color-scheme) и по data-theme (тема Telegram) */
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        --bg-top: #151B13; --bg-bot: #10150F;
+        --surface: #1C261D; --surface-2: #253023;
+        --ink: #ECEEE4; --ink-soft: #A6B0A0; --line: #34402F;
+        --forest: #A9C7A9; --forest-bg: #35694B; --spruce: #C2D8B6; --lake: #86B4D0;
+        --shoot: #2C4230; --clay: #3A2A1E; --brass: #D6813F; --burn: #E7A56E;
+        --brass-wash: rgba(214,129,63,0.16);
+        --shadow-hairline: 0 1px 2px rgba(0,0,0,.4);
+        --shadow-soft: 0 3px 14px rgba(0,0,0,.40);
+        --shadow-float: 0 16px 40px rgba(0,0,0,.55);
+      }
+    }
+    :root[data-theme="dark"] {
+      --bg-top: #151B13; --bg-bot: #10150F;
+      --surface: #1C261D; --surface-2: #253023;
+      --ink: #ECEEE4; --ink-soft: #A6B0A0; --line: #34402F;
+      --forest: #A9C7A9; --forest-bg: #35694B; --spruce: #C2D8B6; --lake: #86B4D0;
+      --shoot: #2C4230; --clay: #3A2A1E; --brass: #D6813F; --burn: #E7A56E;
+      --brass-wash: rgba(214,129,63,0.16);
+      --shadow-hairline: 0 1px 2px rgba(0,0,0,.4);
+      --shadow-soft: 0 3px 14px rgba(0,0,0,.40);
+      --shadow-float: 0 16px 40px rgba(0,0,0,.55);
+    }
+
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
     html, body { margin: 0; padding: 0; }
     body {
@@ -67,6 +95,12 @@
       font: inherit; font-weight: 600; font-size: 13px; border-radius: 999px; padding: 9px 14px; cursor: pointer;
       box-shadow: var(--shadow-hairline); white-space: nowrap; margin-top: 4px;
     }
+    .head-actions { display: flex; gap: 10px; align-items: center; }
+    .theme-toggle { padding: 9px 12px; font-size: 15px; line-height: 1; }
+    .privacy-note { margin: 22px 8px 0; font-size: 12px; color: var(--ink-soft); line-height: 1.5; text-align: center; }
+    .owner-chip { display: inline-block; margin-top: 8px; font-size: 12px; font-weight: 600; color: var(--spruce); background: var(--shoot); border-radius: 999px; padding: 4px 12px; }
+    .owner-chip[hidden] { display: none; }
+    .onb-privacy { font-size: 12px; color: var(--ink-soft); line-height: 1.45; margin: 2px 0 16px; }
     .review-pill:active { background: var(--surface-2); }
 
     .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow-hairline); }
@@ -113,16 +147,16 @@
     .chip-att .x { cursor: pointer; color: var(--ink-soft); font-weight: 800; padding-left: 2px; }
 
     /* Inbox */
-    .inbox { padding: 18px; display: flex; align-items: center; gap: 16px; }
+    .inbox { padding: 18px; display: flex; align-items: center; gap: 14px; }
     .inbox .count {
-      width: 62px; height: 62px; border-radius: var(--radius-bend); background: var(--clay); color: var(--burn);
-      display: flex; align-items: center; justify-content: center; font-size: 26px; font-weight: 700; flex: 0 0 auto;
+      width: 56px; height: 56px; border-radius: var(--radius-bend); background: var(--clay); color: var(--burn);
+      display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: 700; flex: 0 0 auto;
       font-family: var(--font-display);
     }
-    .inbox .meta { flex: 1; }
-    .inbox .meta .t { font-weight: 600; font-size: 17px; }
+    .inbox .meta { flex: 1; min-width: 0; }
+    .inbox .meta .t { font-weight: 600; font-size: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .inbox .meta .d { font-size: 13px; color: var(--ink-soft); margin-top: 3px; line-height: 1.35; }
-    .inbox .go { background: var(--forest); }
+    .inbox .go { background: var(--forest-bg); padding: 0 16px; font-size: 14px; }
     .inbox .go:hover { background: var(--spruce); }
     .inbox .go:disabled { opacity: 0.35; box-shadow: none; }
 
@@ -133,7 +167,7 @@
       width: 26px; height: 26px; border-radius: 8px; border: 2px solid var(--line); margin-top: 1px; flex: 0 0 auto; cursor: pointer;
       display: flex; align-items: center; justify-content: center; font-size: 15px; color: transparent; transition: all .15s ease;
     }
-    .task-card.done .check { background: var(--forest); border-color: var(--forest); color: #fff; }
+    .task-card.done .check { background: var(--forest-bg); border-color: var(--forest-bg); color: #fff; }
     .task-card.done .txt .title { text-decoration: line-through; color: var(--ink-soft); }
     .task-card .txt { flex: 1; }
     .task-card .title { font-weight: 600; font-size: 16px; line-height: 1.35; }
@@ -236,7 +270,7 @@
       flex: 1; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: inherit; font-weight: 600;
       font-size: 13px; border-radius: 12px; padding: 11px 6px; cursor: pointer; transition: all .12s ease;
     }
-    .seg button.sel { border-color: var(--forest); background: var(--forest); color: #F7F6F1; }
+    .seg button.sel { border-color: var(--forest-bg); background: var(--forest-bg); color: #F7F6F1; }
     .letgo {
       margin-top: 10px; width: 100%; border: 1px dashed var(--brass); background: var(--brass-wash); color: var(--burn);
       font: inherit; font-weight: 600; font-size: 13px; border-radius: 14px; padding: 11px; cursor: pointer;
@@ -303,7 +337,7 @@
     /* Toast */
     .toast {
       position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%) translateY(20px);
-      background: var(--forest); color: #F7F6F1; padding: 13px 20px; border-radius: 14px; font-size: 14px; font-weight: 500;
+      background: var(--forest-bg); color: #F7F6F1; padding: 13px 20px; border-radius: 14px; font-size: 14px; font-weight: 500;
       box-shadow: var(--shadow-float); opacity: 0; pointer-events: none; transition: all .25s ease; z-index: 50;
     }
     .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
@@ -350,8 +384,12 @@
         <div>
           <h1>Органайзер Хаоса</h1>
           <span class="sub" id="today-label"></span>
+          <span class="owner-chip" id="owner-chip" hidden></span>
         </div>
-        <button class="review-pill" id="review-btn">🗓 Обзор</button>
+        <div class="head-actions">
+          <button class="review-pill" id="review-btn">🗓 Обзор</button>
+          <button class="review-pill theme-toggle" id="theme-toggle" aria-label="Переключить тему" title="Тема">☾</button>
+        </div>
       </div>
 
       <!-- 1. Capture -->
@@ -414,6 +452,8 @@
         <button class="export-btn" id="notion-btn">📋 Копировать для Notion</button>
         <button class="export-btn danger" id="clear-btn">🧹 Очистить всё — начать с чистого листа</button>
       </div>
+
+      <p class="privacy-note">🔒 Приватно и автономно: записи хранятся только у тебя — в твоём Telegram и на этом устройстве. На сервер ничего не отправляется, доступа ни у кого другого нет.</p>
     </div>
 
     <!-- TRIAGE SCREEN -->
@@ -458,15 +498,46 @@
   <script>
     // ---- Telegram init ----
     var tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+
+    // ---- Тема: ручной выбор (сохраняется) > тема Telegram > системная ----
+    var THEME_KEY = 'chaos-theme-v1';
+    function storedTheme() { try { return localStorage.getItem(THEME_KEY); } catch (e) { return null; } }
+    function effectiveScheme() {
+      var s = storedTheme();
+      if (s === 'light' || s === 'dark') return s;
+      if (tg && tg.colorScheme) return tg.colorScheme;
+      try { return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'; } catch (e) { return 'light'; }
+    }
+    function applyTheme() {
+      var s = storedTheme();
+      var root = document.documentElement;
+      if (s === 'light' || s === 'dark') { root.setAttribute('data-theme', s); }
+      else if (tg && tg.initData && tg.colorScheme) { root.setAttribute('data-theme', tg.colorScheme); }
+      else { root.removeAttribute('data-theme'); }
+      var scheme = effectiveScheme();
+      try {
+        var bg = (scheme === 'dark') ? '#151B13' : '#F7F6F1';
+        if (tg && tg.setBackgroundColor) tg.setBackgroundColor(bg);
+        if (tg && tg.setHeaderColor) tg.setHeaderColor(bg);
+      } catch (e) {}
+      var tbtn = document.getElementById('theme-toggle');
+      if (tbtn) tbtn.textContent = (scheme === 'dark') ? '☀' : '☾';
+    }
+    function toggleTheme() {
+      var next = (effectiveScheme() === 'dark') ? 'light' : 'dark';
+      try { localStorage.setItem(THEME_KEY, next); } catch (e) {}
+      applyTheme();
+    }
+
     if (tg) {
       try {
         tg.ready();
         tg.expand();
-        if (tg.setBackgroundColor) tg.setBackgroundColor('#F7F6F1');
-        if (tg.setHeaderColor) tg.setHeaderColor('#F7F6F1');
+        if (tg.onEvent) tg.onEvent('themeChanged', applyTheme);
         if (tg.BackButton) tg.BackButton.onClick(function () { backToMain(); });
       } catch (e) {}
     }
+    applyTheme();
 
     var DATA = null;          // { types, entries }
     var nextId = 1000;
@@ -505,7 +576,15 @@
     var CHUNK_SIZE = 3500;      // лимит значения CloudStorage — 4096 символов, режем с запасом
     var saveTimer = null;
 
-    function cloudOn() { return !!(tg && tg.CloudStorage && tg.CloudStorage.setItem); }
+    // CloudStorage доступен не во всех клиентах: до Bot API 6.1 методы существуют, но
+    // ВЫЗОВ бросает WebAppMethodUnsupported. Поэтому проверяем и версию, а не только наличие метода.
+    function cloudOn() {
+      try {
+        if (!(tg && tg.CloudStorage && tg.CloudStorage.setItem)) return false;
+        if (tg.isVersionAtLeast && !tg.isVersionAtLeast('6.1')) return false;
+        return true;
+      } catch (e) { return false; }
+    }
 
     function serializeState() {
       return JSON.stringify({ types: DATA.types, projects: DATA.projects, entries: DATA.entries, nextId: nextId });
@@ -549,33 +628,40 @@
         });
       }
 
-      if (n === 0) { finalizeMeta(); return; }
-      var done = 0, failed = false;
-      chunks.forEach(function (c, idx) {
-        tg.CloudStorage.setItem(CLOUD_CHUNK + idx, c, function (err) {
-          done++; if (err) failed = true;
-          if (done === n && !failed) finalizeMeta();
+      try {
+        if (n === 0) { finalizeMeta(); return; }
+        var done = 0, failed = false;
+        chunks.forEach(function (c, idx) {
+          tg.CloudStorage.setItem(CLOUD_CHUNK + idx, c, function (err) {
+            done++; if (err) failed = true;
+            if (done === n && !failed) finalizeMeta();
+          });
         });
-      });
+      } catch (e) { /* облако недоступно — данные уже сохранены локально */ }
     }
 
     function loadFromCloud(cb) {
-      if (!(tg && tg.CloudStorage && tg.CloudStorage.getItem)) { cb(null); return; }
-      tg.CloudStorage.getItem(CLOUD_META, function (err, val) {
-        if (err || !val) { cb(null); return; }
-        var meta; try { meta = JSON.parse(val); } catch (e) { cb(null); return; }
-        var n = meta && meta.chunks ? meta.chunks : 0;
-        if (!n) { cb(null); return; }
-        var keys = [];
-        for (var i = 0; i < n; i++) keys.push(CLOUD_CHUNK + i);
-        tg.CloudStorage.getItems(keys, function (e, obj) {
-          if (e || !obj) { cb(null); return; }
-          var str = '';
-          for (var j = 0; j < n; j++) { var part = obj[CLOUD_CHUNK + j]; if (part == null) { cb(null); return; } str += part; }
-          var data; try { data = JSON.parse(str); } catch (ex) { cb(null); return; }
-          cb(data);
+      if (!cloudOn() || !tg.CloudStorage.getItem) { cb(null); return; }
+      // Вызовы CloudStorage могут бросать синхронно в неподдерживающих клиентах — оборачиваем всё.
+      try {
+        tg.CloudStorage.getItem(CLOUD_META, function (err, val) {
+          if (err || !val) { cb(null); return; }
+          var meta; try { meta = JSON.parse(val); } catch (e) { cb(null); return; }
+          var n = meta && meta.chunks ? meta.chunks : 0;
+          if (!n) { cb(null); return; }
+          var keys = [];
+          for (var i = 0; i < n; i++) keys.push(CLOUD_CHUNK + i);
+          try {
+            tg.CloudStorage.getItems(keys, function (e, obj) {
+              if (e || !obj) { cb(null); return; }
+              var str = '';
+              for (var j = 0; j < n; j++) { var part = obj[CLOUD_CHUNK + j]; if (part == null) { cb(null); return; } str += part; }
+              var data; try { data = JSON.parse(str); } catch (ex) { cb(null); return; }
+              cb(data);
+            });
+          } catch (e2) { cb(null); }
         });
-      });
+      } catch (e0) { cb(null); }
     }
 
     function applyData(d) {
@@ -667,6 +753,7 @@
             '<div class="onb-pt"><span class="e">🗂️</span><div><b>Разбирай спокойно</b><small>Присвой тип и следующий шаг по правилу 2 минут</small></div></div>' +
             '<div class="onb-pt"><span class="e">🎯</span><div><b>Держи фокус</b><small>Матрица Эйзенхауэра — что делать сейчас</small></div></div>' +
           '</div>' +
+          '<p class="onb-privacy">🔒 Приватно и автономно: данные хранятся только у тебя — в Telegram и на этом устройстве. На сервер ничего не уходит.</p>' +
           '<button class="btn-accent" id="onb-clean">Начать с чистого листа</button>' +
           (seed && seed.entries && seed.entries.length ? '<button class="onb-demo" id="onb-demo">Посмотреть на примере</button>' : '') +
         '</div>';
@@ -702,6 +789,15 @@
     function render() {
       var d = new Date();
       el('today-label').textContent = d.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' });
+
+      // Персонализация: показываем имя из Telegram, чтобы было ясно — органайзер личный
+      var oc = el('owner-chip');
+      if (oc) {
+        var nm = '';
+        try { nm = (tg && tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.first_name) || ''; } catch (e) {}
+        if (nm) { oc.textContent = '🔒 Личный · ' + nm; oc.hidden = false; }
+        else { oc.hidden = true; }
+      }
 
       var inbox = DATA.entries.filter(function (e) { return e.type === 'inbox'; });
       el('inbox-count').textContent = inbox.length;
@@ -1401,6 +1497,14 @@
       el('export-btn').addEventListener('click', exportData);
       el('notion-btn').addEventListener('click', exportNotion);
       el('clear-btn').addEventListener('click', confirmClearAll);
+      el('theme-toggle').addEventListener('click', toggleTheme);
+
+      // Автосохранение при сворачивании/закрытии: localStorage синхронно + попытка в облако
+      var flush = function () { try { if (DATA) { saveLocal(); saveCloud(); } } catch (e) {} };
+      document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'hidden') flush(); });
+      window.addEventListener('pagehide', flush);
+      window.addEventListener('beforeunload', flush);
+
       boot();
     });
   </script>
