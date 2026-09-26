@@ -135,7 +135,8 @@
     .share-img { width: 100%; border-radius: 16px; margin-top: 14px; display: block; box-shadow: var(--shadow-soft); }
     .pmodal-card .fld { background: var(--surface-2); border: 1px solid var(--line); border-radius: 12px; padding: 4px 14px; margin-bottom: 10px; }
     .pmodal-card .fld label { display: block; font-size: 12px; color: var(--ink-soft); margin: 8px 0 2px; font-weight: 600; }
-    .pmodal-card .fld input { width: 100%; border: none; outline: none; background: transparent; font: inherit; font-size: 15px; color: var(--ink); padding: 4px 0 10px; }
+    .pmodal-card .fld input, .pmodal-card .fld select { width: 100%; border: none; outline: none; background: transparent; font: inherit; font-size: 15px; color: var(--ink); padding: 4px 0 10px; }
+    .pmodal-card { max-height: 88vh; overflow-y: auto; }
     .onb-privacy { font-size: 12px; color: var(--ink-soft); line-height: 1.45; margin: 2px 0 16px; }
     .review-pill:active { background: var(--surface-2); }
 
@@ -523,6 +524,7 @@
       <!-- 5. Export -->
       <div class="export-group">
         <button class="export-btn" id="export-btn">⬇️ Выгрузить в .txt</button>
+        <button class="export-btn" id="backup-btn">💾 Выгрузить всё (.json) — с файлами и фото</button>
         <button class="export-btn" id="notion-btn">📋 Копировать для Notion</button>
         <button class="export-btn danger" id="clear-btn">🧹 Очистить всё — начать с чистого листа</button>
       </div>
@@ -648,7 +650,9 @@
       { id: 'thought', title: 'Мысли', icon: '💭' },
       { id: 'idea', title: 'Идеи', icon: '💡' },
       { id: 'task', title: 'Задачи', icon: '✅' },
-      { id: 'insight', title: 'Инсайты', icon: '✨' }
+      { id: 'insight', title: 'Инсайты', icon: '✨' },
+      { id: 'link', title: 'Ссылки', icon: '🔗' },
+      { id: 'misc', title: 'Прочее', icon: '📦' }
     ];
 
     var el = function (id) { return document.getElementById(id); };
@@ -768,7 +772,9 @@
     function applyData(d) {
       DATA = d;
       if (!DATA.entries) DATA.entries = [];
-      if (!DATA.types) DATA.types = [];
+      if (!DATA.types || !DATA.types.length) DATA.types = DEFAULT_TYPES.slice();
+      // Дозаливаем новые типы тем, у кого сохранён старый набор
+      DEFAULT_TYPES.forEach(function (dt) { if (!DATA.types.some(function (t) { return t.id === dt.id; })) DATA.types.push(dt); });
       if (!DATA.projects) DATA.projects = [];
       if (d.nextId) nextId = d.nextId;
       saveLocal();
@@ -1367,7 +1373,8 @@
       var ideaMark = ['идея','а что если','что если','можно сделать','было бы','а если','придумал','придумала','концепт','запустить','а давай'];
       var insightMark = ['понял','поняла','осознал','осознала','инсайт','вывод','оказывается','заметил','заметила','урок','важно помнить'];
       var d = parseRuDate(t);
-      if (has(insightMark)) res.type = 'insight';
+      if (/(https?:\/\/|www\.|t\.me\/|\S+\.(ru|com|org|io|net|me)\b)/i.test(raw)) res.type = 'link';
+      else if (has(insightMark)) res.type = 'insight';
       else if (has(ideaMark)) res.type = 'idea';
       else if (has(taskVerbs) || d) res.type = 'task';
       else res.type = 'thought';
@@ -1654,7 +1661,12 @@
           if (e.attachments && e.attachments.length) {
             nodes[i].insertAdjacentHTML('beforeend', attRowHtml(e.attachments));
           }
-          nodes[i].querySelector('.it-del').addEventListener('click', function () { deleteEntryNode(e, nodes[i]); });
+          nodes[i].querySelector('.it-del').addEventListener('click', function (ev) { ev.stopPropagation(); deleteEntryNode(e, nodes[i]); });
+          nodes[i].style.cursor = 'pointer';
+          nodes[i].addEventListener('click', function (ev) {
+            if (ev.target.closest('.it-del') || ev.target.closest('.chip-att')) return;
+            openEditEntry(e);
+          });
         });
       }
       showScreen('list');
@@ -1670,17 +1682,20 @@
     }
 
     function openList(typeId) {
+      _currentList = function () { openList(typeId); };
       var tp = typeById(typeId);
       renderEntryList(tp ? tp.icon + ' ' + tp.title : 'Записи',
         DATA.entries.filter(function (e) { return e.type === typeId; }));
     }
 
     function openStatusList(status, title) {
+      _currentList = function () { openStatusList(status, title); };
       renderEntryList(title,
         DATA.entries.filter(function (e) { return e.type === 'task' && e.status === status; }));
     }
 
     function openProject(pid) {
+      _currentList = function () { openProject(pid); };
       var p = projectById(pid);
       renderEntryList('📁 ' + (p ? p.title : 'Проект'),
         DATA.entries.filter(function (e) { return e.projectId === pid; }));
@@ -1763,6 +1778,7 @@
     }
 
     function openReviewList(key) {
+      _currentList = function () { openReviewList(key); };
       if (key === 'inbox') renderEntryList('📥 Не разобрано', DATA.entries.filter(function (e) { return e.type === 'inbox'; }));
       else if (key === 'today') renderEntryList('🎯 Сегодня / в работе', DATA.entries.filter(function (e) { return e.type === 'task' && e.status === 'today'; }));
       else if (key === 'waiting') openStatusList('waiting', '⏳ Ждёт');
@@ -1791,7 +1807,71 @@
         if (e.nextStep) meta += ' · Шаг: ' + e.nextStep;
         nodes[i].querySelector('.it-meta').textContent = meta;
         if (e.attachments && e.attachments.length) nodes[i].insertAdjacentHTML('beforeend', attRowHtml(e.attachments));
-        nodes[i].querySelector('.it-del').addEventListener('click', function () { deleteEntryNode(e, nodes[i]); });
+        nodes[i].querySelector('.it-del').addEventListener('click', function (ev) { ev.stopPropagation(); deleteEntryNode(e, nodes[i]); });
+        nodes[i].style.cursor = 'pointer';
+        nodes[i].addEventListener('click', function (ev) { if (ev.target.closest('.it-del') || ev.target.closest('.chip-att')) return; openEditEntry(e); });
+      });
+    }
+
+    var _currentList = null;
+    function refreshCurrentView() {
+      var s = (document.querySelector('.screen.active') || {}).id;
+      if (s === 'screen-search') { renderSearchResults(el('search-input') ? el('search-input').value : ''); }
+      else if (s === 'screen-list' && _currentList) { _currentList(); }
+      else render();
+    }
+
+    function openEditEntry(entry) {
+      var ov = document.getElementById('edit-modal'); if (ov) ov.parentNode.removeChild(ov);
+      var typeOpts = DATA.types.map(function (t) { return '<option value="' + t.id + '"' + (entry.type === t.id ? ' selected' : '') + '>' + t.icon + ' ' + escapeHtml(t.title) + '</option>'; }).join('');
+      var projOpts = '<option value="">— без проекта —</option>' + DATA.projects.map(function (p) { return '<option value="' + p.id + '">' + escapeHtml(p.title) + '</option>'; }).join('');
+      var eisenOpts = '<option value="">— не задан —</option>' + EISEN.map(function (q) { return '<option value="' + q.id + '">' + q.ic + ' ' + q.t + '</option>'; }).join('');
+      ov = document.createElement('div'); ov.className = 'pmodal'; ov.id = 'edit-modal';
+      ov.innerHTML = '<div class="pmodal-card">' +
+        '<div class="pmodal-h">✏️ Изменить запись</div>' +
+        '<div class="fld"><label>Тип</label><select id="ee-type">' + typeOpts + '</select></div>' +
+        '<div id="ee-task">' +
+          '<div class="fld"><label>Куда задачу</label><select id="ee-status"><option value="today">Сегодня</option><option value="waiting">Ждёт</option><option value="someday">Когда-нибудь</option><option value="done">Сделано</option></select></div>' +
+          '<div class="fld"><label>Приоритет (матрица Эйзенхауэра)</label><select id="ee-eisen">' + eisenOpts + '</select></div>' +
+          '<div class="fld"><label>Следующий шаг</label><input id="ee-step" placeholder="Что сделать первым"></div>' +
+        '</div>' +
+        '<div class="fld"><label>Срок</label><input id="ee-due" type="date"></div>' +
+        '<div class="fld"><label>Время</label><input id="ee-time" type="time"></div>' +
+        '<div class="fld"><label>Проект</label><select id="ee-proj">' + projOpts + '</select></div>' +
+        '<button class="btn-accent" id="ee-save" style="width:100%;height:48px;margin-top:14px;">Сохранить</button>' +
+        '<button class="export-btn" id="ee-cancel" style="width:100%;margin-top:10px;">Отмена</button>' +
+        '</div>';
+      document.body.appendChild(ov);
+      document.getElementById('ee-status').value = entry.status || 'today';
+      document.getElementById('ee-eisen').value = entry.eisen || '';
+      document.getElementById('ee-step').value = entry.nextStep || '';
+      document.getElementById('ee-due').value = entry.due || '';
+      document.getElementById('ee-time').value = entry.dueTime || '';
+      document.getElementById('ee-proj').value = entry.projectId || '';
+      function syncTask() { document.getElementById('ee-task').hidden = (document.getElementById('ee-type').value !== 'task'); }
+      syncTask();
+      document.getElementById('ee-type').addEventListener('change', syncTask);
+      ov.addEventListener('click', function (e) { if (e.target === ov) ov.parentNode.removeChild(ov); });
+      document.getElementById('ee-cancel').addEventListener('click', function () { ov.parentNode.removeChild(ov); });
+      document.getElementById('ee-save').addEventListener('click', function () {
+        var t = document.getElementById('ee-type').value;
+        entry.type = t;
+        entry.projectId = document.getElementById('ee-proj').value || null;
+        entry.due = document.getElementById('ee-due').value || null;
+        entry.dueTime = document.getElementById('ee-time').value || null;
+        if (t === 'task') {
+          entry.status = document.getElementById('ee-status').value || 'today';
+          entry.eisen = document.getElementById('ee-eisen').value || null;
+          entry.nextStep = document.getElementById('ee-step').value.trim();
+          entry.done = (entry.status === 'done');
+          if (entry.remind) entry.remindAt = computeRemindAt(entry.due, entry.dueTime, entry.remind);
+        } else if (entry.status === 'inbox') {
+          entry.status = 'done';
+        }
+        save(); render(); refreshCurrentView();
+        ov.parentNode.removeChild(ov);
+        toast('Изменено');
+        if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.impactOccurred('light'); } catch (e) {} }
       });
     }
 
@@ -1918,6 +1998,18 @@
     }
 
     // ---- Export ----
+    function exportBackup() {
+      try {
+        var payload = JSON.stringify({ v: 1, types: DATA.types, projects: DATA.projects, entries: DATA.entries, nextId: nextId, exportedAt: new Date().toISOString() });
+        var blob = new Blob([payload], { type: 'application/json' });
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a'); a.href = url; a.download = 'chaos-backup.json';
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+        toast('Резервная копия сохранена (с фото и файлами)');
+      } catch (e) { toast('Не удалось выгрузить — открой по ссылке в браузере'); }
+    }
+
     function exportData() {
       var lines = ['ОРГАНАЙЗЕР ХАОСА — выгрузка', new Date().toLocaleString('ru-RU'), ''];
       DATA.types.concat([{ id: 'inbox', title: 'Входящие (не разобрано)', icon: '📥' }]).forEach(function (tp) {
@@ -2133,6 +2225,7 @@
       var sbk = el('search-back'); if (sbk) sbk.addEventListener('click', backToMain);
       var si = el('search-input'); if (si) si.addEventListener('input', function () { renderSearchResults(this.value); });
       el('export-btn').addEventListener('click', exportData);
+      var bkp = el('backup-btn'); if (bkp) bkp.addEventListener('click', exportBackup);
       el('notion-btn').addEventListener('click', exportNotion);
       el('clear-btn').addEventListener('click', confirmClearAll);
       el('theme-toggle').addEventListener('click', toggleTheme);
