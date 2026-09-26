@@ -392,6 +392,11 @@
     .eisen-pick { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 12px; }
     .eisen-pick button { border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: inherit; font-weight: 600; font-size: 12px; border-radius: 12px; padding: 11px 8px; cursor: pointer; display: flex; align-items: center; gap: 7px; text-align: left; transition: all .12s ease; }
     .eisen-pick button.sel { border-color: var(--brass); background: var(--clay); color: var(--burn); }
+    .smart-hint { background: var(--brass-wash); border: 1px solid var(--clay); color: var(--burn); border-radius: 12px; padding: 11px 14px; font-size: 13px; line-height: 1.45; margin-bottom: 14px; }
+    .smart-hint b { color: var(--burn); font-weight: 700; }
+    .smart-hint[hidden] { display: none; }
+    .pick button.suggested { position: relative; }
+    .pick button.suggested::after { content: '✨'; position: absolute; top: -7px; right: -6px; font-size: 13px; }
   </style>
 </head>
 <body>
@@ -1053,6 +1058,97 @@
       }).join('');
     }
 
+    // ---- Умный разбор: клиентский анализ текста (тип, срок, приоритет, черновик шага). Без сервера. ----
+    var RU_WEEKDAYS = { 'понедельник':1,'пн':1,'вторник':2,'вт':2,'среда':3,'среду':3,'ср':3,'четверг':4,'чт':4,'пятница':5,'пятницу':5,'пт':5,'суббота':6,'субботу':6,'сб':6,'воскресенье':0,'вс':0 };
+    var RU_MONTHS = { 'янв':0,'фев':1,'март':2,'мар':2,'апр':3,'мая':4,'май':4,'июн':5,'июл':6,'авг':7,'сент':8,'сен':8,'окт':9,'нояб':10,'ноя':10,'дек':11 };
+    function _pad2(n){ return (n < 10 ? '0' : '') + n; }
+    function _iso(d){ return d.getFullYear() + '-' + _pad2(d.getMonth()+1) + '-' + _pad2(d.getDate()); }
+    function _mid(d){ var x = new Date(d); x.setHours(0,0,0,0); return x; }
+    function _daysUntil(d){ return Math.round((_mid(d) - _mid(new Date())) / 86400000); }
+
+    // Граница «слова» для кириллицы: в JS \b с кириллицей не работает.
+    function _wordIn(t, w){ return new RegExp('(^|[^а-яёa-z0-9])' + w + '([^а-яёa-z0-9]|$)').test(t); }
+
+    function parseRuDate(t){
+      var now = new Date();
+      if (_wordIn(t, 'послезавтра')) { var b = _mid(now); b.setDate(b.getDate()+2); return b; }
+      if (_wordIn(t, 'сегодня')) return _mid(now);
+      if (_wordIn(t, 'завтра')) { var a = _mid(now); a.setDate(a.getDate()+1); return a; }
+      var mv = t.match(/через\s+(\d+)\s+(дн|день|дня|дней)/); if (mv) { var c = _mid(now); c.setDate(c.getDate()+parseInt(mv[1],10)); return c; }
+      if (/через\s+недел/.test(t)) { var w = _mid(now); w.setDate(w.getDate()+7); return w; }
+      var keys = Object.keys(RU_WEEKDAYS);
+      for (var i = 0; i < keys.length; i++) {
+        if (_wordIn(t, keys[i])) {
+          var target = RU_WEEKDAYS[keys[i]], d = _mid(now), add = (target - d.getDay() + 7) % 7;
+          if (add === 0) add = 7; d.setDate(d.getDate() + add); return d;
+        }
+      }
+      var md = t.match(/\b(\d{1,2})\.(\d{1,2})(?:\.(\d{2,4}))?\b/);
+      if (md) { var yr = md[3] ? (+md[3] < 100 ? 2000 + (+md[3]) : +md[3]) : now.getFullYear(); var dd = new Date(yr, (+md[2])-1, +md[1]); if (!md[3] && _mid(dd) < _mid(now)) dd.setFullYear(yr+1); return _mid(dd); }
+      var mw = t.match(/\b(\d{1,2})\s+([а-я]{3,})/);
+      if (mw) { var mk = Object.keys(RU_MONTHS); for (var j = 0; j < mk.length; j++) { if (mw[2].indexOf(mk[j]) === 0) { var dw = new Date(now.getFullYear(), RU_MONTHS[mk[j]], +mw[1]); if (_mid(dw) < _mid(now)) dw.setFullYear(now.getFullYear()+1); return _mid(dw); } } }
+      return null;
+    }
+
+    function fmtDueHint(d){
+      var du = _daysUntil(d);
+      if (du === 0) return 'сегодня';
+      if (du === 1) return 'завтра';
+      if (du === 2) return 'послезавтра';
+      return d.toLocaleDateString('ru-RU', { weekday: 'short', day: 'numeric', month: 'short' });
+    }
+
+    function suggestNextStep(raw){
+      var s = (raw || '').trim().replace(/\s+/g, ' ').split(/[.;\n]/)[0].trim();
+      return s ? s.charAt(0).toUpperCase() + s.slice(1) : '';
+    }
+
+    function analyze(text){
+      var raw = text || '', t = raw.toLowerCase();
+      var res = { type: 'thought', due: null, dueHint: '', eisen: null, nextStep: '', confident: false };
+      function has(arr){ for (var i = 0; i < arr.length; i++) if (t.indexOf(arr[i]) > -1) return true; return false; }
+      var taskVerbs = ['позвон','перезвон','дозвон','напиш','написать','отправ','сделай','сделать','купи','купить','оплат','заплат','встрет','встреч','запиш','записать','записаться','договор','заброн','заказа','подготов','собра','сдать','сдай','отвез','забра','проверь','проверить','назнач','согласова','сходить','сходи','убра','помыть','починит','отремонт'];
+      var ideaMark = ['идея','а что если','что если','можно сделать','было бы','а если','придумал','придумала','концепт','запустить','а давай'];
+      var insightMark = ['понял','поняла','осознал','осознала','инсайт','вывод','оказывается','заметил','заметила','урок','важно помнить'];
+      var d = parseRuDate(t);
+      if (has(insightMark)) res.type = 'insight';
+      else if (has(ideaMark)) res.type = 'idea';
+      else if (has(taskVerbs) || d) res.type = 'task';
+      else res.type = 'thought';
+      if (d) { res.due = _iso(d); res.dueHint = fmtDueHint(d); }
+      if (res.type === 'task') {
+        var urgent = has(['срочно','сегодня','завтра','asap','немедленно','горит','дедлайн','сейчас']) || (d && _daysUntil(d) <= 1);
+        var important = has(['важно','важн','ключев','критич','нельзя забыть','обязательно','здоровье']);
+        if (urgent && important) res.eisen = 'do';
+        else if (urgent && !important) res.eisen = 'delegate';
+        else res.eisen = 'plan';
+        res.nextStep = suggestNextStep(raw);
+      }
+      res.confident = (res.type !== 'thought') || !!d;
+      return res;
+    }
+
+    function applySmartSuggestion(entry, body){
+      var s = analyze(entry.text);
+      if (!s.confident) return;
+      var typeBtn = body.querySelector('.pick button[data-type="' + s.type + '"]');
+      if (typeBtn) { typeBtn.click(); typeBtn.classList.add('suggested'); }
+      if (s.type === 'task') {
+        var ns = el('next-step'); if (ns && !ns.value) ns.value = s.nextStep;
+        if (s.due) { var du = el('due'); if (du) du.value = s.due; }
+        if (s.eisen) { var eb = body.querySelector('#eisen-pick button[data-eisen="' + s.eisen + '"]'); if (eb) eb.click(); }
+      }
+      var hint = el('smart-hint');
+      if (hint) {
+        var tp = typeById(s.type);
+        var parts = ['тип: ' + (tp ? tp.icon + ' ' + tp.title : s.type)];
+        if (s.due) parts.push('срок: ' + s.dueHint);
+        if (s.type === 'task' && s.eisen) { var q = eisenById(s.eisen); if (q) parts.push('приоритет: ' + q.t.toLowerCase()); }
+        hint.innerHTML = '<b>✨ Умный разбор</b> — ' + parts.join(' · ') + '. Проверь и жми «Готово».';
+        hint.hidden = false;
+      }
+    }
+
     function openTriage() {
       triageQueue = DATA.entries.filter(function (e) { return e.type === 'inbox'; });
       if (!triageQueue.length) return;
@@ -1097,6 +1193,7 @@
           attRowHtml(entry.attachments) +
         '</div>' +
         '<div class="two-min">⏱️ <b>Правило 2 минут:</b> если разобраться займёт меньше 2 минут — сделай прямо сейчас и отметь «Сделано».</div>' +
+        '<div class="smart-hint" id="smart-hint" hidden></div>' +
         '<div class="pick-label">Что это?</div>' +
         '<div class="pick">' + picks + '</div>' +
         '<button class="letgo" id="letgo-btn">🌬️ Отпустить — превратить в задачу с шагом</button>' +
@@ -1163,6 +1260,9 @@
 
       var delBtn = el('triage-del');
       if (delBtn) delBtn.addEventListener('click', deleteTriageEntry);
+
+      // Умный разбор: предзаполняем тип/срок/приоритет/шаг — пользователю остаётся подтвердить
+      applySmartSuggestion(entry, body);
     }
 
     function deleteTriageEntry() {
