@@ -402,7 +402,13 @@
     .fallback button { margin-top: 22px; }
 
     /* Filtered list */
-    .list-view .item { padding: 18px; margin-bottom: 12px; }
+    .list-view .item { padding: 14px 44px 14px 14px; margin-bottom: 9px; position: relative; }
+    .list-view .item .it-del {
+      position: absolute; top: 10px; right: 8px; border: none; background: transparent; cursor: pointer;
+      font-size: 16px; line-height: 1; padding: 6px; border-radius: 9px; opacity: .55; transition: opacity .12s ease, background .12s ease;
+    }
+    .list-view .item .it-del:hover { opacity: 1; background: var(--surface-2); }
+    .list-view .item .it-del:active { transform: scale(0.9); }
     .list-view .item .it-txt { font-size: 15px; color: var(--ink); line-height: 1.45; }
     .list-view .item .it-meta { font-size: 12px; color: var(--ink-soft); margin-top: 8px; line-height: 1.4; }
 
@@ -1624,7 +1630,7 @@
         body.innerHTML = '<div class="card empty-mini">Здесь пока пусто.</div>';
       } else {
         body.innerHTML = items.map(function () {
-          return '<div class="card item"><div class="it-txt"></div><div class="it-meta"></div></div>';
+          return '<div class="card item"><button class="it-del" title="Удалить">🗑</button><div class="it-txt"></div><div class="it-meta"></div></div>';
         }).join('');
         var nodes = body.querySelectorAll('.item');
         items.forEach(function (e, i) {
@@ -1636,9 +1642,19 @@
           if (e.attachments && e.attachments.length) {
             nodes[i].insertAdjacentHTML('beforeend', attRowHtml(e.attachments));
           }
+          nodes[i].querySelector('.it-del').addEventListener('click', function () { deleteEntryNode(e, nodes[i]); });
         });
       }
       showScreen('list');
+    }
+
+    function deleteEntryNode(e, node) {
+      var idx = DATA.entries.indexOf(e);
+      if (idx > -1) DATA.entries.splice(idx, 1);
+      save(); render();
+      if (node && node.parentNode) node.parentNode.removeChild(node);
+      toast('Удалено');
+      if (tg && tg.HapticFeedback) { try { tg.HapticFeedback.impactOccurred('medium'); } catch (ex) {} }
     }
 
     function openList(typeId) {
@@ -1755,7 +1771,7 @@
         return (e.text || '').toLowerCase().indexOf(q) > -1 || (e.nextStep || '').toLowerCase().indexOf(q) > -1;
       });
       if (!items.length) { body.innerHTML = '<div class="card empty-mini">Ничего не нашлось по «' + escapeHtml(q) + '».</div>'; return; }
-      body.innerHTML = items.map(function () { return '<div class="card item"><div class="it-txt"></div><div class="it-meta"></div></div>'; }).join('');
+      body.innerHTML = items.map(function () { return '<div class="card item"><button class="it-del" title="Удалить">🗑</button><div class="it-txt"></div><div class="it-meta"></div></div>'; }).join('');
       var nodes = body.querySelectorAll('.item');
       items.forEach(function (e, i) {
         nodes[i].querySelector('.it-txt').textContent = e.text;
@@ -1763,6 +1779,7 @@
         if (e.nextStep) meta += ' · Шаг: ' + e.nextStep;
         nodes[i].querySelector('.it-meta').textContent = meta;
         if (e.attachments && e.attachments.length) nodes[i].insertAdjacentHTML('beforeend', attRowHtml(e.attachments));
+        nodes[i].querySelector('.it-del').addEventListener('click', function () { deleteEntryNode(e, nodes[i]); });
       });
     }
 
